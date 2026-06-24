@@ -277,7 +277,7 @@ var MENU=[
   {id:'tm',label:'Tereya\u011fl\u0131 Mumbar',name:'Tereya\u011fl\u0131 Mumbar',price:330}
 ];
 var basket={},payType='nakit',viewDate=todayKey();
-function todayKey(){var d=new Date(),y=d.getFullYear(),m=d.getMonth()+1,dd=d.getDate();return y+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;}
+function todayKey(){var d=new Date();if(d.getHours()<7){d.setDate(d.getDate()-1);}var y=d.getFullYear(),m=d.getMonth()+1,dd=d.getDate();return y+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;}
 function fmtD(k){if(!k)return'';var p=k.split('-');return p[2]+'.'+p[1]+'.'+p[0];}
 function tl(n){return(+n).toLocaleString('tr-TR')+' \u20ba';}
 function ge(id){return document.getElementById(id);}
@@ -381,7 +381,7 @@ function renderRapor(){
   ge('rap-7g').innerHTML=h;
 }
 
-function updateHeader(){var dk=todayKey(),d=new Date();var days=['Pazar','Pazartesi','Sal\u0131','\u00c7ar\u015famba','Per\u015fembe','Cuma','Cumartesi'];ge('hdate').textContent=fmtD(dk)+' \xb7 '+days[d.getDay()];var tot=getSales(dk).reduce(function(a,s){return a+s.total;},0);ge('hciro').textContent=tl(tot);}
+function updateHeader(){var dk=todayKey(),d=new Date();var days=['Pazar','Pazartesi','Sal\u0131','\u00c7ar\u015famba','Per\u015fembe','Cuma','Cumartesi'];var vardiyaLabel=fmtD(dk)+' Vardiya \xb7 '+days[new Date(dk+'T12:00:00').getDay()];ge('hdate').textContent=vardiyaLabel;var tot=getSales(dk).reduce(function(a,s){return a+s.total;},0);ge('hciro').textContent=tl(tot);}
 function shiftDay(d){var dt=new Date(viewDate);dt.setDate(dt.getDate()+d);var nk=dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());if(nk>todayKey())return;viewDate=nk;renderSatis();renderKasa();renderRapor();}
 function goTab(t){var tabs=['adi','sat','kas','rap'];for(var i=0;i<tabs.length;i++){ge('nb-'+tabs[i]).className='navbtn'+(tabs[i]===t?' on':'');ge('pnl-'+tabs[i]).className='pnl'+(tabs[i]===t?' show':'');}}
 function showToast(msg){var el=ge('toast');el.textContent=msg;el.className='show';clearTimeout(el._t);el._t=setTimeout(function(){el.className='';},2200);}
