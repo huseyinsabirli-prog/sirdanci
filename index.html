@@ -182,6 +182,14 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
           <span id="btotal">0 &#8378;</span>
         </div>
       </div>
+      <div id="revize-blok" style="display:none;background:#fef9ec;border:2px solid #f0c060;border-radius:9px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:#b87a10;margin-bottom:6px">&#9998; Tutarı Revize Et (isteğe bağlı)</div>
+        <div style="display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:8px">
+          <input class="inp" id="revize-tutar" type="number" inputmode="decimal" placeholder="Farklı tutar gir (₺)" style="margin:0;-webkit-flex:1;flex:1;font-size:14px;padding:9px 11px" oninput="calcUst()">
+          <button onclick="clearRevize()" style="padding:9px 11px;background:#fff;border:1.5px solid #ddd;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#888;-webkit-appearance:none;white-space:nowrap">Sıfırla</button>
+        </div>
+        <div id="revize-fark" style="font-size:11px;color:#b87a10;margin-top:5px;display:none"></div>
+      </div>
       <div class="lbl" style="margin-top:10px">Odeme Sekli</div>
       <div class="prow">
         <button class="pb on" id="pb-nak" onclick="setPay('nakit')">&#128181; Nakit</button>
@@ -495,7 +503,9 @@ var MENU=[
   {id:'ay',label:'Ayran',name:'Ayran',price:40},
   {id:'su',label:'Su',name:'Su',price:15},
   {id:'so',label:'Soda',name:'Soda',price:15},
-  {id:'tm',label:'Tereya\u011fl\u0131 M.',name:'Tereya\u011fl\u0131 Mumbar',price:330}
+  {id:'tm',label:'Tereya\u011fl\u0131 M.',name:'Tereya\u011fl\u0131 Mumbar',price:330},
+  {id:'sa',label:'S\u0131rdan+Ayran',name:'S\u0131rdan + Ayran',price:280},
+  {id:'ma',label:'Mumbar+Ayran',name:'Mumbar + Ayran',price:320}
 ];
 
 var basket={},payType='nakit',viewDate=todayKey();
@@ -581,38 +591,83 @@ function buildMenu(){
 }
 
 // ── SEPET ──
-function clearBasket(){basket={};renderBasket();showToast('Sepet temizlendi');}
+function getRevize(){
+  var v=parseFloat(ge('revize-tutar').value);
+  return (!isNaN(v)&&v>0)?v:0;
+}
+function getFinalTotal(){
+  var rev=getRevize();
+  return rev>0?rev:getTotal();
+}
+function clearRevize(){
+  ge('revize-tutar').value='';
+  renderRevizeFark();
+  calcUst();
+}
+function renderRevizeFark(){
+  var blok=ge('revize-blok');
+  var total=getTotal();
+  if(!total){blok.style.display='none';return;}
+  blok.style.display='block';
+  var rev=getRevize();
+  var farkEl=ge('revize-fark');
+  if(rev>0&&rev!==total){
+    var fark=rev-total;
+    farkEl.style.display='block';
+    farkEl.textContent=(fark>0?'+ ':'') + fark.toLocaleString('tr-TR') + ' ₺ fark (orijinal: '+total.toLocaleString('tr-TR')+' ₺)';
+    farkEl.style.color=fark<0?'#c0392b':'#1a7a4a';
+  } else {
+    farkEl.style.display='none';
+  }
+}
 function addItem(id){basket[id]=(basket[id]||0)+1;renderBasket();}
 function chgQ(id,d){basket[id]=(basket[id]||0)+d;if(basket[id]<=0)delete basket[id];renderBasket();}
 function getTotal(){var t=0,keys=Object.keys(basket);for(var i=0;i<keys.length;i++){var m=findM(keys[i]);if(m)t+=m.price*basket[keys[i]];}return t;}
+function clearBasket(){basket={};if(ge('revize-tutar'))ge('revize-tutar').value='';if(ge('revize-blok'))ge('revize-blok').style.display='none';renderBasket();showToast('Sepet temizlendi');}
 function renderBasket(){
   var keys=Object.keys(basket),total=getTotal(),el=ge('blist');
-  if(!keys.length){el.innerHTML='<div class="bempty">Hen\u00fcz \u00fcr\u00fcn eklenmedi</div>';ge('btotal').textContent='0 \u20ba';ge('savebtn').disabled=true;ge('ustbox').style.display='none';ge('clrbtn').style.display='none';return;}
+  if(!keys.length){el.innerHTML='<div class="bempty">Hen\u00fcz \u00fcr\u00fcn eklenmedi</div>';ge('btotal').textContent='0 \u20ba';ge('savebtn').disabled=true;ge('ustbox').style.display='none';ge('clrbtn').style.display='none';ge('revize-blok').style.display='none';return;}
   ge('savebtn').disabled=false;ge('clrbtn').style.display='inline-block';
   var html='';
   for(var i=0;i<keys.length;i++){var id=keys[i],m=findM(id),q=basket[id];html+='<div class="bitem"><span class="biname">'+m.name+'</span><div class="qrow"><button class="qb" id="qm-'+id+'">\u2212</button><span class="qn">'+q+'</span><button class="qb" id="qp-'+id+'">+</button></div><span class="bip">'+(m.price*q).toLocaleString('tr-TR')+'\u20ba</span></div>';}
   el.innerHTML=html;
   for(var i=0;i<keys.length;i++){(function(kid){var bm=ge('qm-'+kid),bp=ge('qp-'+kid);if(bm){bm.addEventListener('touchend',function(e){e.preventDefault();chgQ(kid,-1);},false);bm.addEventListener('click',function(e){e.preventDefault();chgQ(kid,-1);},false);}if(bp){bp.addEventListener('touchend',function(e){e.preventDefault();chgQ(kid,1);},false);bp.addEventListener('click',function(e){e.preventDefault();chgQ(kid,1);},false);};})(keys[i]);}
-  ge('btotal').textContent=tl(total);calcUst();
+  ge('btotal').textContent=tl(total);
+  renderRevizeFark();
+  calcUst();
 }
 
 function setPay(t){payType=t;ge('pb-nak').className='pb'+(t==='nakit'?' on':'');ge('pb-pos').className='pb'+(t==='pos'?' on':'');ge('nakit-blok').style.display=t==='nakit'?'block':'none';if(t==='pos')ge('ustbox').style.display='none';}
-function calcUst(){if(payType!=='nakit')return;var total=getTotal();if(!total){ge('ustbox').style.display='none';return;}var v=parseFloat(ge('vpara').value)||0;if(!v){ge('ustbox').style.display='none';return;}var diff=v-total;ge('ustbox').style.display='flex';ge('ustbox').className='ustbox '+(diff>=0?'ust-p':'ust-n');ge('ustlbl').textContent=diff>=0?'Para \xdcst\xfc':'Eksik Tutar';ge('ustval').textContent=Math.abs(diff).toLocaleString('tr-TR')+'\u20ba';}
+function calcUst(){
+  if(payType!=='nakit')return;
+  var total=getFinalTotal();
+  if(!total){ge('ustbox').style.display='none';return;}
+  var v=parseFloat(ge('vpara').value)||0;
+  if(!v){ge('ustbox').style.display='none';return;}
+  var diff=v-total;
+  ge('ustbox').style.display='flex';
+  ge('ustbox').className='ustbox '+(diff>=0?'ust-p':'ust-n');
+  ge('ustlbl').textContent=diff>=0?'Para \xdcst\xfc':'Eksik Tutar';
+  ge('ustval').textContent=Math.abs(diff).toLocaleString('tr-TR')+'\u20ba';
+}
 
 // ── KAYDET ──
 function saveSale(){
   var keys=Object.keys(basket);if(!keys.length)return;
   ge('savebtn').disabled=true;
-  var total=getTotal(),items=[],now=new Date();
+  var origTotal=getTotal(), finalTotal=getFinalTotal(), items=[],now=new Date();
   for(var i=0;i<keys.length;i++){var m=findM(keys[i]);items.push({id:keys[i],name:m.name,qty:basket[keys[i]],price:m.price});}
   var ver=payType==='nakit'?(parseFloat(ge('vpara').value)||0):0;
   var note=ge('anot').value.trim();
-  var sale={id:now.getTime(),time:pad(now.getHours())+':'+pad(now.getMinutes()),hour:now.getHours(),items:items,total:total,pay:payType,verilen:ver||null,ust:ver?ver-total:null,note:note};
+  var revizeNot = (origTotal!==finalTotal)?' [Revize: '+origTotal.toLocaleString('tr-TR')+'\u20ba \u2192 '+finalTotal.toLocaleString('tr-TR')+'\u20ba]':'';
+  var sale={id:now.getTime(),time:pad(now.getHours())+':'+pad(now.getMinutes()),hour:now.getHours(),items:items,total:finalTotal,origTotal:origTotal!==finalTotal?origTotal:null,pay:payType,verilen:ver||null,ust:ver?ver-finalTotal:null,note:note+revizeNot};
   var dk=todayKey();
   getSales(dk,function(arr){
     arr=arr||[];arr.push(sale);
     saveSalesF(dk,arr,function(){
       basket={};ge('vpara').value='';ge('anot').value='';ge('ustbox').style.display='none';
+      if(ge('revize-tutar'))ge('revize-tutar').value='';
+      if(ge('revize-blok'))ge('revize-blok').style.display='none';
       renderBasket();updateHeader();renderSatis();renderKasa();
       showToast('Sat\u0131\u015f kaydedildi \u2713');
     });
@@ -626,7 +681,7 @@ function renderSatis(){
     var el=ge('satlist');
     if(!arr||!arr.length){el.innerHTML='<div class="empty">Bu vardiya i\xe7in sat\u0131\u015f kayd\u0131 yok</div>';return;}
     var rev=arr.slice().reverse(),html='',ids=[];
-    for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=s.ust!==null?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta"><span class="badge '+(s.pay==='nakit'?'bn':'bp')+'">'+(s.pay==='nakit'?'Nakit':'POS')+'</span><span class="stime">'+s.time+'</span><button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
+    for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=(s.ust!==null&&s.ust!==undefined&&!isNaN(s.ust))?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta"><span class="badge '+(s.pay==='nakit'?'bn':'bp')+'">'+(s.pay==='nakit'?'Nakit':'POS')+'</span><span class="stime">'+s.time+'</span><button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
     el.innerHTML=html;
     for(var i=0;i<ids.length;i++){(function(sid){var b=ge('ds-'+sid);if(!b)return;b.addEventListener('touchend',function(e){e.preventDefault();delSale(sid);},false);b.addEventListener('click',function(e){e.preventDefault();delSale(sid);},false);})(ids[i]);}
   });
@@ -743,7 +798,14 @@ function updateHeader(){
 }
 
 function shiftDay(d){var dt=new Date(viewDate);dt.setDate(dt.getDate()+d);var nk=dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());if(nk>todayKey())return;viewDate=nk;renderSatis();renderKasa();renderRapor();}
-function goTab(t){var tabs=['adi','sat','kas','rap','canli'];for(var i=0;i<tabs.length;i++){ge('nb-'+tabs[i]).className='navbtn'+(tabs[i]===t?' on':'');ge('pnl-'+tabs[i]).className='pnl'+(tabs[i]===t?' show':'');}if(t==='canli')startLiveWatch();}
+function goTab(t){
+  var tabs=['adi','sat','kas','rap','canli'];
+  for(var i=0;i<tabs.length;i++){
+    ge('nb-'+tabs[i]).className='navbtn'+(tabs[i]===t?' on':'');
+    ge('pnl-'+tabs[i]).className='pnl'+(tabs[i]===t?' show':'');
+  }
+  if(t==='canli') startLiveWatch();
+}
 function showToast(msg){var el=ge('toast');el.textContent=msg;el.className='show';clearTimeout(el._t);el._t=setTimeout(function(){el.className='';},2200);}
 
 function setupBtns(){
@@ -874,7 +936,7 @@ function saveManuel(){
   });
 }
 
-window.openManuel=openManuel;window.closeManuel=closeManuel;window.mSetPay=mSetPay;window.saveManuel=saveManuel;
+window.openManuel=openManuel;window.closeManuel=closeManuel;window.mSetPay=mSetPay;window.saveManuel=saveManuel;window.clearRevize=clearRevize;
 
 
 
