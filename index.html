@@ -219,7 +219,20 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
     </div>
   </div>
 
-  <!-- MANUEL ADİSYON MODAL -->
+  <!-- SİLME ONAY MODALI -->
+<div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:24px 20px;width:88%;max-width:320px;text-align:center">
+    <div style="font-size:32px;margin-bottom:10px">🗑️</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:8px">Emin misiniz?</div>
+    <div style="font-size:13px;color:#888;margin-bottom:20px" id="confirm-msg">Bu kayıt silinecek, geri alınamaz.</div>
+    <div style="display:-webkit-flex;display:flex;gap:10px">
+      <button onclick="confirmNo()" style="flex:1;padding:12px;border:2px solid #ddd;border-radius:10px;background:#f8f8f8;font-size:14px;font-weight:700;cursor:pointer;-webkit-appearance:none">Vazgeç</button>
+      <button onclick="confirmYes()" style="flex:1;padding:12px;border:none;border-radius:10px;background:#c0392b;color:#fff;font-size:14px;font-weight:700;cursor:pointer;-webkit-appearance:none">Evet, Sil</button>
+    </div>
+  </div>
+</div>
+
+
   <div id="manuel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:8000;-webkit-align-items:flex-end;align-items:flex-end;display:none;-webkit-justify-content:center;justify-content:center">
     <div style="background:#fff;border-radius:18px 18px 0 0;padding:20px 16px 32px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto">
       <div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;margin-bottom:14px">
@@ -618,18 +631,37 @@ function renderSatis(){
     for(var i=0;i<ids.length;i++){(function(sid){var b=ge('ds-'+sid);if(!b)return;b.addEventListener('touchend',function(e){e.preventDefault();delSale(sid);},false);b.addEventListener('click',function(e){e.preventDefault();delSale(sid);},false);})(ids[i]);}
   });
 }
+var _confirmCb = null;
+function showConfirm(msg, cb){
+  ge('confirm-msg').textContent = msg;
+  ge('confirm-modal').style.display = '-webkit-flex';
+  ge('confirm-modal').style.display = 'flex';
+  _confirmCb = cb;
+}
+function confirmYes(){
+  ge('confirm-modal').style.display = 'none';
+  if(_confirmCb){ _confirmCb(); _confirmCb=null; }
+}
+function confirmNo(){
+  ge('confirm-modal').style.display = 'none';
+  _confirmCb = null;
+}
+window.confirmYes=confirmYes; window.confirmNo=confirmNo;
+
 function delSale(id){
-  getSales(viewDate,function(arr){
-    arr=(arr||[]).filter(function(s){return s.id!==id;});
-    saveSalesF(viewDate,arr,function(){renderSatis();renderKasa();updateHeader();});
+  showConfirm('Bu satış kaydı silinecek, geri alınamaz.', function(){
+    getSales(viewDate,function(arr){
+      arr=(arr||[]).filter(function(s){return s.id!==id;});
+      saveSalesF(viewDate,arr,function(){renderSatis();renderKasa();updateHeader();});
+    });
   });
 }
 
 // ── KASA ──
 function addGelir(){var ac=ge('gel-ac').value.trim(),tu=parseFloat(ge('gel-tu').value);if(!ac||!tu||tu<=0)return;getGelirs(viewDate,function(arr){arr=arr||[];arr.push({id:Date.now(),aciklama:ac,tutar:tu});saveGelirs(viewDate,arr,function(){ge('gel-ac').value='';ge('gel-tu').value='';renderKasa();showToast('Ek gelir eklendi \u2713');});});}
 function addGider(){var ac=ge('gid-ac').value.trim(),tu=parseFloat(ge('gid-tu').value);if(!ac||!tu||tu<=0)return;getGiders(viewDate,function(arr){arr=arr||[];arr.push({id:Date.now(),aciklama:ac,tutar:tu});saveGiders(viewDate,arr,function(){ge('gid-ac').value='';ge('gid-tu').value='';renderKasa();showToast('Gider eklendi \u2713');});});}
-function delGelir(id){getGelirs(viewDate,function(arr){arr=(arr||[]).filter(function(g){return g.id!==id;});saveGelirs(viewDate,arr,function(){renderKasa();});}); }
-function delGider(id){getGiders(viewDate,function(arr){arr=(arr||[]).filter(function(g){return g.id!==id;});saveGiders(viewDate,arr,function(){renderKasa();});});}
+function delGelir(id){showConfirm('Bu ek gelir kaydı silinecek.',function(){getGelirs(viewDate,function(arr){arr=(arr||[]).filter(function(g){return g.id!==id;});saveGelirs(viewDate,arr,function(){renderKasa();});});});}
+function delGider(id){showConfirm('Bu gider kaydı silinecek.',function(){getGiders(viewDate,function(arr){arr=(arr||[]).filter(function(g){return g.id!==id;});saveGiders(viewDate,arr,function(){renderKasa();});});});}
 
 function renderKasa(){
   ge('kas-dlbl').textContent=fmtD(viewDate);
