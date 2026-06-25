@@ -116,6 +116,8 @@ body.readonly .bigbtn,body.readonly #clrbtn,body.readonly .mbtn,
 body.readonly #btn-ag,body.readonly #btn-gd,body.readonly .delbtn{pointer-events:none;opacity:.35}
 body.readonly #savebtn{display:none}
 body.readonly .pb{pointer-events:none}
+body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
+/* Readonly modda adisyon sekmesi yerine direkt satışlar göster */
 .rbar{margin-bottom:9px}
 .rtop{display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:baseline;align-items:baseline;margin-bottom:3px}
 .rname{font-size:12px;font-weight:600}
@@ -208,11 +210,39 @@ body.readonly .pb{pointer-events:none}
       <div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;margin-bottom:8px">
         <div class="lbl" style="margin:0">Satis Kayitlari</div>
         <div class="exprow">
+          <button class="sbtn g" id="btn-manuel" onclick="openManuel()" style="display:none">+ Ekle</button>
           <button class="sbtn g" onclick="exportCSV()">&#11015; CSV</button>
           <button class="sbtn b" onclick="exportPDF()">&#128438; PDF</button>
         </div>
       </div>
       <div id="satlist"></div>
+    </div>
+  </div>
+
+  <!-- MANUEL ADİSYON MODAL -->
+  <div id="manuel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:8000;-webkit-align-items:flex-end;align-items:flex-end;display:none;-webkit-justify-content:center;justify-content:center">
+    <div style="background:#fff;border-radius:18px 18px 0 0;padding:20px 16px 32px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto">
+      <div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;margin-bottom:14px">
+        <span style="font-size:15px;font-weight:800">Manuel Adisyon Ekle</span>
+        <button onclick="closeManuel()" style="background:#f0f0f0;border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:#555">&#10005;</button>
+      </div>
+      <div class="lbl">Tarih</div>
+      <input class="inp" id="m-tarih" type="date" style="margin-bottom:12px">
+      <div class="lbl">Saat (örn: 14:30)</div>
+      <input class="inp" id="m-saat" type="time" style="margin-bottom:12px">
+      <div class="lbl">Ürün Seç</div>
+      <div id="m-mgrid" style="display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:7px;margin-bottom:12px"></div>
+      <div id="m-basket" style="margin-bottom:8px"></div>
+      <div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;font-weight:800;font-size:16px;padding:8px 0;border-top:2px solid #f0f0f0;margin-bottom:10px">
+        <span>Toplam</span><span id="m-total">0 &#8378;</span>
+      </div>
+      <div class="lbl">Ödeme Şekli</div>
+      <div class="prow" style="margin-bottom:10px">
+        <button class="pb on" id="m-pb-nak" onclick="mSetPay('nakit')">&#128181; Nakit</button>
+        <button class="pb" id="m-pb-pos" onclick="mSetPay('pos')">&#128179; POS / Iban</button>
+      </div>
+      <input class="inp" id="m-not" placeholder="Açıklama (isteğe bağlı)">
+      <button class="bigbtn" id="m-savebtn" onclick="saveManuel()" disabled>&#10003; Kaydet</button>
     </div>
   </div>
 
@@ -403,7 +433,10 @@ function showApp(){
     if(isGarson){rb.textContent='Garson';rb.className='rb-garson';}
     else{rb.textContent='Izleyici';rb.className='rb-ortak';}
   }
-  buildMenu();renderBasket();setupBtns();updateHeader();renderSatis();renderKasa();
+  buildMenu();renderBasket();setupBtns();updateHeader();renderSatis();renderKasa();renderRapor();
+  updateManuelBtn();
+  // Ortak girince direkt Satışlar sekmesine yönlendir
+  if(!isGarson){ setTimeout(function(){goTab('sat');},100); }
   if(fbOK && db){
     db.ref('.info/connected').on('value',function(snap){setSyncBadge(snap.val()?'ok':'err');});
   }
@@ -726,7 +759,82 @@ function exportPDF(){
   });
 }
 
-window.setPay=setPay;window.calcUst=calcUst;window.saveSale=saveSale;window.goTab=goTab;window.exportCSV=exportCSV;window.exportPDF=exportPDF;window.clearBasket=clearBasket;window.doLogin=doLogin;window.doLogout=doLogout;
+// Manuel adisyon butonu garson için göster
+function updateManuelBtn(){
+  var btn=ge('btn-manuel');
+  if(btn) btn.style.display=isGarson?'inline-flex':'none';
+}
+
+var mBasket={}, mPayType='nakit';
+
+function openManuel(){
+  var modal=ge('manuel-modal');
+  if(!modal)return;
+  modal.style.display='-webkit-flex';
+  modal.style.display='flex';
+  // Tarihi görüntülenen güne ayarla
+  ge('m-tarih').value=viewDate;
+  // Saati şimdiye ayarla
+  var now=new Date();
+  ge('m-saat').value=pad(now.getHours())+':'+pad(now.getMinutes());
+  mBasket={};mPayType='nakit';
+  ge('m-pb-nak').className='pb on';
+  ge('m-pb-pos').className='pb';
+  ge('m-not').value='';
+  buildMManuelGrid();
+  renderMBasket();
+}
+function closeManuel(){
+  var modal=ge('manuel-modal');
+  if(modal){modal.style.display='none';}
+}
+function buildMManuelGrid(){
+  var el=ge('m-mgrid');if(!el)return;
+  var html='';
+  for(var i=0;i<MENU.length;i++){var m=MENU[i];html+='<button class="mbtn" id="mm-'+m.id+'" style="width:calc(33.33% - 5px)"><span class="mn">'+m.label+'</span><span class="mp">'+m.price+'\u20ba</span></button>';}
+  el.innerHTML=html;
+  for(var i=0;i<MENU.length;i++){(function(mid){var btn=ge('mm-'+mid);if(!btn)return;btn.addEventListener('touchend',function(e){e.preventDefault();mAddItem(mid);},false);btn.addEventListener('click',function(e){e.preventDefault();mAddItem(mid);},false);})(MENU[i].id);}
+}
+function mAddItem(id){mBasket[id]=(mBasket[id]||0)+1;renderMBasket();}
+function mChgQ(id,d){mBasket[id]=(mBasket[id]||0)+d;if(mBasket[id]<=0)delete mBasket[id];renderMBasket();}
+function getMTotal(){var t=0,keys=Object.keys(mBasket);for(var i=0;i<keys.length;i++){var m=findM(keys[i]);if(m)t+=m.price*mBasket[keys[i]];}return t;}
+function renderMBasket(){
+  var keys=Object.keys(mBasket),total=getMTotal(),el=ge('m-basket');
+  ge('m-savebtn').disabled=!keys.length;
+  if(!keys.length){el.innerHTML='<div class="bempty">Ürün eklenmedi</div>';ge('m-total').textContent='0 \u20ba';return;}
+  var html='';
+  for(var i=0;i<keys.length;i++){var id=keys[i],m=findM(id),q=mBasket[id];html+='<div class="bitem"><span class="biname">'+m.name+'</span><div class="qrow"><button class="qb" id="mqm-'+id+'">\u2212</button><span class="qn">'+q+'</span><button class="qb" id="mqp-'+id+'">+</button></div><span class="bip">'+(m.price*q).toLocaleString('tr-TR')+'\u20ba</span></div>';}
+  el.innerHTML=html;
+  for(var i=0;i<keys.length;i++){(function(kid){var bm=ge('mqm-'+kid),bp=ge('mqp-'+kid);if(bm){bm.addEventListener('touchend',function(e){e.preventDefault();mChgQ(kid,-1);},false);bm.addEventListener('click',function(e){e.preventDefault();mChgQ(kid,-1);},false);}if(bp){bp.addEventListener('touchend',function(e){e.preventDefault();mChgQ(kid,1);},false);bp.addEventListener('click',function(e){e.preventDefault();mChgQ(kid,1);},false);};})(keys[i]);}
+  ge('m-total').textContent=tl(total);
+}
+function mSetPay(t){mPayType=t;ge('m-pb-nak').className='pb'+(t==='nakit'?' on':'');ge('m-pb-pos').className='pb'+(t==='pos'?' on':'');}
+function saveManuel(){
+  var keys=Object.keys(mBasket);if(!keys.length)return;
+  var tarih=ge('m-tarih').value;
+  var saat=ge('m-saat').value||'00:00';
+  var not=ge('m-not').value.trim();
+  if(!tarih){showToast('Tarih secin');return;}
+  var total=getMTotal();
+  var items=[];
+  for(var i=0;i<keys.length;i++){var m=findM(keys[i]);items.push({id:keys[i],name:m.name,qty:mBasket[keys[i]],price:m.price});}
+  var hour=parseInt(saat.split(':')[0])||0;
+  var sale={id:Date.now(),time:saat,hour:hour,items:items,total:total,pay:mPayType,verilen:null,ust:null,note:not+(not?', ':'')+'\u{1F4DD}Manuel'};
+  getSales(tarih,function(arr){
+    arr=arr||[];arr.push(sale);
+    saveSalesF(tarih,arr,function(){
+      closeManuel();
+      // Eğer aynı gündeyse listeyi yenile
+      if(tarih===viewDate)renderSatis();
+      if(tarih===todayKey())updateHeader();
+      showToast('Adisyon eklendi \u2713');
+    });
+  });
+}
+
+window.openManuel=openManuel;window.closeManuel=closeManuel;window.mSetPay=mSetPay;window.saveManuel=saveManuel;
+
+
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
 </script>
