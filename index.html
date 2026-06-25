@@ -97,6 +97,25 @@ body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont
 .girow{display:-webkit-flex;display:flex;gap:6px;-webkit-align-items:center;align-items:center;margin-bottom:7px}
 .girow .inp{margin-bottom:0;-webkit-flex:1;flex:1;font-size:13px;padding:10px}
 .girow .num{max-width:80px;-webkit-flex:none;flex:none}
+/* GİRİŞ EKRANI */
+#login-screen{position:fixed;inset:0;background:#1a4a2e;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;z-index:9999;padding:30px}
+#login-screen h2{color:#fff;font-size:22px;font-weight:800;margin-bottom:6px;text-align:center}
+#login-screen .lsub{color:rgba(255,255,255,.65);font-size:13px;margin-bottom:28px;text-align:center}
+.linp{width:100%;max-width:320px;padding:14px 16px;border:2px solid rgba(255,255,255,.25);border-radius:12px;background:rgba(255,255,255,.1);color:#fff;font-size:15px;margin-bottom:10px;outline:none;-webkit-appearance:none;display:block}
+.linp::-webkit-input-placeholder{color:rgba(255,255,255,.45)}
+.lbtn{width:100%;max-width:320px;padding:14px;background:#fff;color:#1a4a2e;border:none;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer;margin-top:6px;-webkit-appearance:none;display:block}
+.lbtn:active{opacity:.85}
+#lerr{color:#ffaaaa;font-size:13px;margin-top:10px;text-align:center;min-height:18px}
+#llogo{font-size:50px;margin-bottom:12px}
+/* YETKİ ROZET */
+#rol-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;display:inline-block;margin-top:3px}
+.rb-garson{background:#2d6b43;color:#afffcb}
+.rb-ortak{background:#185fa5;color:#cce4ff}
+/* SADECE İZLEME — garson olmayan kullanıcılar yazamaz */
+body.readonly .bigbtn,body.readonly #clrbtn,body.readonly .mbtn,
+body.readonly #btn-ag,body.readonly #btn-gd,body.readonly .delbtn{pointer-events:none;opacity:.35}
+body.readonly #savebtn{display:none}
+body.readonly .pb{pointer-events:none}
 .rbar{margin-bottom:9px}
 .rtop{display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:baseline;align-items:baseline;margin-bottom:3px}
 .rname{font-size:12px;font-weight:600}
@@ -116,17 +135,30 @@ body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont
 </style>
 </head>
 <body>
-<div id="app">
+<!-- GİRİŞ EKRANI -->
+<div id="login-screen">
+  <div id="llogo">&#127866;</div>
+  <h2>Sirdanci Ayten Abla</h2>
+  <div class="lsub">Devam etmek icin giris yapin</div>
+  <input class="linp" id="lemail" type="email" inputmode="email" placeholder="E-posta">
+  <input class="linp" id="lpass" type="password" placeholder="Sifre">
+  <button class="lbtn" id="lbtn" onclick="doLogin()">Giris Yap</button>
+  <div id="lerr"></div>
+</div>
+
+<div id="app" style="display:none">
 
 <div id="hdr">
   <div>
     <h1>&#127866; Sirdanci Ayten Abla</h1>
     <div class="sub" id="hdate">yukleniyor...</div>
     <span id="syncbadge" class="sync">&#8635; baglanıyor...</span>
+    <span id="rol-badge"></span>
   </div>
   <div style="text-align:right">
     <div class="cr" id="hciro">0 &#8378;</div>
     <div class="crl">Vardiya Ciro</div>
+    <div style="margin-top:3px"><button onclick="doLogout()" style="background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:6px;padding:3px 9px;font-size:10px;cursor:pointer;font-weight:600">Cikis</button></div>
   </div>
 </div>
 
@@ -296,6 +328,7 @@ body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
 <script>
 // ═══════════════════════════════════════════
@@ -313,13 +346,98 @@ var FIREBASE_CONFIG = {
 // ═══════════════════════════════════════════
 
 var db = null;
+var auth = null;
 var fbOK = false;
+var currentUser = null;
+var isGarson = false;
+
+// Garson e-postaları — siz değiştirebilirsiniz
+var GARSON_EMAILS = ['garson@sirdanciaytenabla.com'];
 
 try {
   firebase.initializeApp(FIREBASE_CONFIG);
   db = firebase.database();
+  auth = firebase.auth();
   fbOK = true;
 } catch(e) { fbOK = false; }
+
+// Auth durumu izle
+if(fbOK && auth){
+  auth.onAuthStateChanged(function(user){
+    if(user){
+      currentUser = user;
+      isGarson = GARSON_EMAILS.indexOf(user.email) >= 0;
+      showApp();
+    } else {
+      currentUser = null;
+      isGarson = false;
+      showLogin();
+    }
+  });
+} else {
+  // Firebase yoksa direkt aç
+  showApp();
+}
+
+function showLogin(){
+  var ls = document.getElementById('login-screen');
+  var app = document.getElementById('app');
+  if(ls) ls.style.display = 'flex';
+  if(app) app.style.display = 'none';
+}
+
+function showApp(){
+  var ls = document.getElementById('login-screen');
+  var app = document.getElementById('app');
+  if(ls) ls.style.display = 'none';
+  if(app) app.style.display = 'flex';
+  // Yetki ayarla
+  if(!isGarson){
+    document.body.classList.add('readonly');
+  } else {
+    document.body.classList.remove('readonly');
+  }
+  // Rol rozeti
+  var rb = document.getElementById('rol-badge');
+  if(rb){
+    if(isGarson){rb.textContent='Garson';rb.className='rb-garson';}
+    else{rb.textContent='Izleyici';rb.className='rb-ortak';}
+  }
+  buildMenu();renderBasket();setupBtns();updateHeader();renderSatis();renderKasa();
+  if(fbOK && db){
+    db.ref('.info/connected').on('value',function(snap){setSyncBadge(snap.val()?'ok':'err');});
+  }
+}
+
+function doLogin(){
+  var email = document.getElementById('lemail').value.trim();
+  var pass = document.getElementById('lpass').value;
+  var err = document.getElementById('lerr');
+  var btn = document.getElementById('lbtn');
+  if(!email||!pass){err.textContent='E-posta ve sifre girin';return;}
+  err.textContent='';
+  btn.textContent='Giriliyor...';btn.disabled=true;
+  if(!fbOK||!auth){
+    // Firebase yoksa direk gir (offline mod)
+    isGarson = true; showApp();
+    btn.textContent='Giris Yap';btn.disabled=false;
+    return;
+  }
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(function(){btn.textContent='Giris Yap';btn.disabled=false;})
+    .catch(function(e){
+      btn.textContent='Giris Yap';btn.disabled=false;
+      if(e.code==='auth/wrong-password'||e.code==='auth/invalid-credential')err.textContent='Sifre yanlis';
+      else if(e.code==='auth/user-not-found')err.textContent='Kullanici bulunamadi';
+      else if(e.code==='auth/invalid-email')err.textContent='Gecersiz e-posta';
+      else err.textContent='Giris basarisiz: '+e.message;
+    });
+}
+
+function doLogout(){
+  if(fbOK && auth){auth.signOut();}
+  else{showLogin();}
+}
 
 var MENU=[
   {id:'s',label:'Sirdan',name:'\u015e\u0131rdan',price:260},
@@ -608,9 +726,7 @@ function exportPDF(){
   });
 }
 
-window.setPay=setPay;window.calcUst=calcUst;window.saveSale=saveSale;window.goTab=goTab;window.exportCSV=exportCSV;window.exportPDF=exportPDF;window.clearBasket=clearBasket;
-
-buildMenu();renderBasket();setupBtns();updateHeader();renderSatis();renderKasa();
+window.setPay=setPay;window.calcUst=calcUst;window.saveSale=saveSale;window.goTab=goTab;window.exportCSV=exportCSV;window.exportPDF=exportPDF;window.clearBasket=clearBasket;window.doLogin=doLogin;window.doLogout=doLogout;
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
 </script>
