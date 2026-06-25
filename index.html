@@ -500,17 +500,28 @@ function fbPath(type, dk){return 'vardiya/'+dk+'/'+type;}
 
 function fbSet(type, dk, data, cb){
   if(fbOK && db){
-    db.ref(fbPath(type,dk)).set(data).then(function(){setSyncBadge('ok');if(cb)cb();}).catch(function(e){setSyncBadge('err');fallbackSet(type,dk,data);if(cb)cb();});
+    // Array'i object'e çevir {0:..., 1:..., 2:...} şeklinde sakla
+    var obj={};
+    for(var i=0;i<data.length;i++) obj[i]=data[i];
+    db.ref(fbPath(type,dk)).set(obj).then(function(){setSyncBadge('ok');if(cb)cb();}).catch(function(e){setSyncBadge('err');fallbackSet(type,dk,data);if(cb)cb();});
   } else {
     fallbackSet(type,dk,data);if(cb)cb();
   }
 }
+function toArr(val){
+  if(!val) return [];
+  if(Array.isArray(val)){
+    // null elemanları filtrele
+    return val.filter(function(x){return x!=null;});
+  }
+  // object ise values al, null filtrele
+  return Object.values(val).filter(function(x){return x!=null;});
+}
 function fbGet(type, dk, cb){
   if(fbOK && db){
     db.ref(fbPath(type,dk)).once('value').then(function(snap){
-      var val=snap.val();
-      cb(val ? (Array.isArray(val)?val:Object.values(val)) : []);
-    }).catch(function(){cb(fallbackGet(type,dk));});
+      cb(toArr(snap.val()));
+    }).catch(function(e){console.log('fbGet err',e);cb(fallbackGet(type,dk));});
   } else {
     cb(fallbackGet(type,dk));
   }
@@ -518,8 +529,7 @@ function fbGet(type, dk, cb){
 function fbListen(type, dk, cb){
   if(fbOK && db){
     db.ref(fbPath(type,dk)).on('value',function(snap){
-      var val=snap.val();
-      cb(val ? (Array.isArray(val)?val:Object.values(val)) : []);
+      cb(toArr(snap.val()));
     });
   }
 }
