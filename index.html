@@ -185,7 +185,7 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <div id="revize-blok" style="display:none;background:#fef9ec;border:2px solid #f0c060;border-radius:9px;padding:10px 12px;margin-bottom:10px">
         <div style="font-size:11px;font-weight:700;color:#b87a10;margin-bottom:6px">&#9998; Tutarı Revize Et (isteğe bağlı)</div>
         <div style="display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:8px">
-          <input class="inp" id="revize-tutar" type="number" inputmode="decimal" placeholder="Farklı tutar gir (₺)" style="margin:0;-webkit-flex:1;flex:1;font-size:14px;padding:9px 11px" oninput="calcUst()">
+          <input class="inp" id="revize-tutar" type="number" inputmode="decimal" placeholder="Farklı tutar gir (₺)" style="margin:0;-webkit-flex:1;flex:1;font-size:14px;padding:9px 11px" oninput="renderRevizeFark();calcUst()">
           <button onclick="clearRevize()" style="padding:9px 11px;background:#fff;border:1.5px solid #ddd;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#888;-webkit-appearance:none;white-space:nowrap">Sıfırla</button>
         </div>
         <div id="revize-fark" style="font-size:11px;color:#b87a10;margin-top:5px;display:none"></div>
@@ -340,7 +340,19 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
     <div class="card"><div class="lbl">Urun Bazli Satislar</div><div id="rap-urun"></div></div>
     <div class="card"><div class="lbl">Saatlik Dagilim</div><div id="rap-saat"></div></div>
     <div class="card"><div class="lbl">Odeme Dagilimi</div><div id="rap-ode"></div></div>
-    <div class="card"><div class="lbl">Son 30 Gun (Satisi Olan Gunler)</div><div id="rap-7g"></div></div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="background:#1a4a2e;padding:12px 14px;display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center">
+        <div>
+          <div style="color:#fff;font-size:13px;font-weight:800;letter-spacing:.3px">&#128197; Son 30 Günlük Ciro</div>
+          <div style="color:rgba(255,255,255,.65);font-size:10px;margin-top:2px">Satışı olan günler gösterilir</div>
+        </div>
+        <div style="text-align:right">
+          <div style="color:#afffcb;font-size:11px;font-weight:600">30 Gün Toplam</div>
+          <div style="color:#fff;font-size:18px;font-weight:800" id="rap-30-toplam">— ₺</div>
+        </div>
+      </div>
+      <div style="padding:12px 14px"><div id="rap-7g"></div></div>
+    </div>
     <div class="card">
       <div class="exprow">
         <button class="sbtn g" onclick="exportCSV()">&#11015; CSV Indir</button>
@@ -850,7 +862,13 @@ function renderRapor(){
     for(var i=29;i>=0;i--){var dd=new Date();dd.setDate(dd.getDate()-i);var dk2=dd.getFullYear()+'-'+pad(dd.getMonth()+1)+'-'+pad(dd.getDate());days.push(dk2);}
     // 30 günlük veriyi toplu çek
     var results={},done=0;
-    for(var i=0;i<days.length;i++){(function(dk3){getSales(dk3,function(s2){results[dk3]=(s2||[]).reduce(function(a,s){return a+s.total;},0);done++;if(done===days.length){var h2='';for(var j=0;j<days.length;j++){var t2=results[days[j]]||0;if(t2===0&&days[j]!==todayKey())continue;if(t2>maxG)maxG=t2;}for(var j=0;j<days.length;j++){var t2=results[days[j]]||0;if(t2===0&&days[j]!==todayKey())continue;var p2=Math.round(t2/maxG*100);h2+='<div class="rbar"><div class="rtop"><span class="rname">'+fmtD(days[j])+(days[j]===todayKey()?' <small style="color:#1a4a2e;font-size:10px">(bug\xfcn)</small>':'')+'</span><span class="rval">'+tl(t2)+'</span></div><div class="rbg"><div class="rfill" style="width:'+p2+'%;background:#b87a10"></div></div></div>';}ge('rap-7g').innerHTML=h2||'<div class="empty">Veri yok</div>';}});})(days[i]);}
+    for(var i=0;i<days.length;i++){(function(dk3){getSales(dk3,function(s2){results[dk3]=(s2||[]).reduce(function(a,s){return a+s.total;},0);done++;if(done===days.length){
+      var h2='',grandTotal=0;
+      for(var j=0;j<days.length;j++){var t2=results[days[j]]||0;grandTotal+=t2;if(t2===0&&days[j]!==todayKey())continue;if(t2>maxG)maxG=t2;}
+      for(var j=0;j<days.length;j++){var t2=results[days[j]]||0;if(t2===0&&days[j]!==todayKey())continue;var p2=Math.round(t2/maxG*100);h2+='<div class="rbar"><div class="rtop"><span class="rname">'+fmtD(days[j])+(days[j]===todayKey()?' <small style="color:#1a4a2e;font-size:10px">(bug\xfcn)</small>':'')+'</span><span class="rval">'+tl(t2)+'</span></div><div class="rbg"><div class="rfill" style="width:'+p2+'%;background:#b87a10"></div></div></div>';}
+      ge('rap-7g').innerHTML=h2||'<div class="empty">Veri yok</div>';
+      ge('rap-30-toplam').textContent=tl(grandTotal);
+    }});})(days[i]);}
   });
 }
 
