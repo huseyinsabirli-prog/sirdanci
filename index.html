@@ -225,8 +225,9 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
     <div class="dnav">
       <button class="darrow" id="btn-sp"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
       <span class="dspan" id="sat-dlbl"></span>
+      <button class="darrow" id="btn-sn"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
     </div>
-    <!-- Günlük Özet Satır -->
+    <!-- Günlük Özet Bar -->
     <div id="sat-ozet" style="display:none;background:#fff;border-radius:12px;padding:10px 14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.07)">
       <div style="display:-webkit-flex;display:flex;gap:7px">
         <div style="-webkit-flex:1;flex:1;background:#eef8f2;border-radius:9px;padding:9px 10px;text-align:center">
@@ -246,8 +247,6 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
           <div style="font-size:15px;font-weight:800;color:#555;margin-top:2px" id="sat-oz-adet">0</div>
         </div>
       </div>
-    </div>
-      <button class="darrow" id="btn-sn"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
     </div>
     <div class="card">
       <div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;margin-bottom:8px">
@@ -973,12 +972,12 @@ function renderRapor(){
       ge('rap-7g').innerHTML=h2||'<div class="empty">Veri yok</div>';
       ge('rap-30-toplam').textContent=tl(grandTotal);
       // Toplu ürün raporu — tüm günlerin satışlarını birleştir
-      buildTopluRapor(days,allSales);
+      buildTopluRapor(days);
     }});})(days[i]);}
   });
 }
 
-function buildTopluRapor(days,allSales){
+function buildTopluRapor(days){
   // allSales henüz yok, tüm günleri Firebase'den çekerek birleştir
   var tumSatislar=[],done2=0;
   for(var i=0;i<days.length;i++){
