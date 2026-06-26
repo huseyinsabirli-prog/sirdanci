@@ -242,10 +242,6 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
           <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#185fa5;opacity:.8">POS/İban</div>
           <div style="font-size:15px;font-weight:800;color:#185fa5;margin-top:2px" id="sat-oz-pos">0 ₺</div>
         </div>
-        <div style="-webkit-flex:1;flex:1;background:#f0f0f0;border-radius:9px;padding:9px 10px;text-align:center">
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#555;opacity:.8">Satış</div>
-          <div style="font-size:15px;font-weight:800;color:#555;margin-top:2px" id="sat-oz-adet">0</div>
-        </div>
       </div>
     </div>
     <div class="card">
@@ -1050,8 +1046,6 @@ function goTab(t){
     ge('nb-'+tabs[i]).className='navbtn'+(tabs[i]===t?' on':'');
     ge('pnl-'+tabs[i]).className='pnl'+(tabs[i]===t?' show':'');
   }
-  // Her sekme değişiminde viewDate'i bugüne sıfırla
-  viewDate=todayKey();
   renderSatis();renderKasa();renderRapor();
   if(t==='canli') startLiveWatch();
 }
