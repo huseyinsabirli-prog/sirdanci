@@ -225,6 +225,28 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
     <div class="dnav">
       <button class="darrow" id="btn-sp"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
       <span class="dspan" id="sat-dlbl"></span>
+    </div>
+    <!-- Günlük Özet Satır -->
+    <div id="sat-ozet" style="display:none;background:#fff;border-radius:12px;padding:10px 14px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,.07)">
+      <div style="display:-webkit-flex;display:flex;gap:7px">
+        <div style="-webkit-flex:1;flex:1;background:#eef8f2;border-radius:9px;padding:9px 10px;text-align:center">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#1a7a4a;opacity:.8">Toplam</div>
+          <div style="font-size:16px;font-weight:800;color:#1a7a4a;margin-top:2px" id="sat-oz-top">0 ₺</div>
+        </div>
+        <div style="-webkit-flex:1;flex:1;background:#eef8f2;border-radius:9px;padding:9px 10px;text-align:center">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#1a7a4a;opacity:.8">Nakit</div>
+          <div style="font-size:15px;font-weight:800;color:#1a7a4a;margin-top:2px" id="sat-oz-nak">0 ₺</div>
+        </div>
+        <div style="-webkit-flex:1;flex:1;background:#e8f2fc;border-radius:9px;padding:9px 10px;text-align:center">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#185fa5;opacity:.8">POS/İban</div>
+          <div style="font-size:15px;font-weight:800;color:#185fa5;margin-top:2px" id="sat-oz-pos">0 ₺</div>
+        </div>
+        <div style="-webkit-flex:1;flex:1;background:#f0f0f0;border-radius:9px;padding:9px 10px;text-align:center">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#555;opacity:.8">Satış</div>
+          <div style="font-size:15px;font-weight:800;color:#555;margin-top:2px" id="sat-oz-adet">0</div>
+        </div>
+      </div>
+    </div>
       <button class="darrow" id="btn-sn"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
     </div>
     <div class="card">
@@ -345,7 +367,19 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <span class="dspan" id="rap-dlbl"></span>
       <button class="darrow" id="btn-rn"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
     </div>
-    <div class="card"><div class="lbl">Urun Bazli Satislar</div><div id="rap-urun"></div></div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="background:linear-gradient(135deg,#185fa5,#1a7abf);padding:12px 14px;display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center">
+        <div>
+          <div style="color:#fff;font-size:13px;font-weight:800">&#127355; Ürün Bazlı Satış Raporu</div>
+          <div style="color:rgba(255,255,255,.65);font-size:10px;margin-top:2px">Adet · Tutar · Oran</div>
+        </div>
+        <div style="text-align:right">
+          <div style="color:#cce4ff;font-size:11px;font-weight:600">Toplam Satış</div>
+          <div style="color:#fff;font-size:18px;font-weight:800" id="rap-urun-top">— ₺</div>
+        </div>
+      </div>
+      <div style="padding:12px 14px"><div id="rap-urun"></div></div>
+    </div>
     <div class="card"><div class="lbl">Saatlik Dagilim</div><div id="rap-saat"></div></div>
     <div class="card"><div class="lbl">Odeme Dagilimi</div><div id="rap-ode"></div></div>
     <div class="card" style="padding:0;overflow:hidden">
@@ -360,6 +394,21 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
         </div>
       </div>
       <div style="padding:12px 14px"><div id="rap-7g"></div></div>
+    </div>
+
+    <!-- TOPLU ÜRÜN RAPORU -->
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="background:linear-gradient(135deg,#6a1a4a,#9b2d72);padding:12px 14px;display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center">
+        <div>
+          <div style="color:#fff;font-size:13px;font-weight:800">&#128202; Toplu Ürün Satış Raporu</div>
+          <div style="color:rgba(255,255,255,.65);font-size:10px;margin-top:2px">Tüm günlerin kümülatif toplamı</div>
+        </div>
+        <div style="text-align:right">
+          <div style="color:#ffccee;font-size:11px;font-weight:600">Genel Toplam</div>
+          <div style="color:#fff;font-size:18px;font-weight:800" id="rap-toplu-top">hesaplanıyor...</div>
+        </div>
+      </div>
+      <div style="padding:12px 14px"><div id="rap-toplu-urun"><div class="empty">Yükleniyor...</div></div></div>
     </div>
     <div class="card">
       <div class="exprow">
@@ -750,6 +799,17 @@ function renderSatis(){
   ge('sat-dlbl').textContent=fmtD(viewDate);
   getSales(viewDate,function(arr){
     var el=ge('satlist');
+    // Özet kartı güncelle
+    if(arr&&arr.length){
+      var np=calcNakPos(arr),top=arr.reduce(function(a,s){return a+s.total;},0);
+      ge('sat-ozet').style.display='block';
+      ge('sat-oz-top').textContent=tl(top);
+      ge('sat-oz-nak').textContent=tl(np.nak);
+      ge('sat-oz-pos').textContent=tl(np.pos);
+      ge('sat-oz-adet').textContent=arr.length;
+    } else {
+      ge('sat-ozet').style.display='none';
+    }
     if(!arr||!arr.length){el.innerHTML='<div class="empty">Bu vardiya i\xe7in sat\u0131\u015f kayd\u0131 yok</div>';return;}
     var rev=arr.slice().reverse(),html='',ids=[];
     for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=(s.ust!==null&&s.ust!==undefined&&!isNaN(s.ust))?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';var payBadge=s.pay==='karma'?'<span class="badge" style="background:#e8f0fe;color:#185fa5">Karma</span>':('<span class="badge '+(s.pay==='nakit'?'bn':'bp')+'">'+(s.pay==='nakit'?'Nakit':'POS')+'</span>');ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta">'+payBadge+'<span class="stime">'+s.time+'</span><button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
@@ -856,8 +916,44 @@ function renderRapor(){
     var um={};
     for(var i=0;i<sales.length;i++)for(var j=0;j<sales[i].items.length;j++){var it=sales[i].items[j];if(!um[it.name])um[it.name]={qty:0,total:0};um[it.name].qty+=it.qty;um[it.name].total+=it.price*it.qty;}
     var ua=[];for(var k in um)ua.push([k,um[k]]);ua.sort(function(a,b){return b[1].total-a[1].total;});
+    var grandTotal=ua.reduce(function(a,x){return a+x[1].total;},0);
+    var grandQty=ua.reduce(function(a,x){return a+x[1].qty;},0);
     var maxU=ua.length?ua[0][1].total:1,h='';
-    for(var i=0;i<ua.length;i++){var p=Math.round(ua[i][1].total/maxU*100);h+='<div class="rbar"><div class="rtop"><span class="rname">'+ua[i][0]+' <small style="color:#aaa;font-size:10px">('+ua[i][1].qty+' adet)</small></span><span class="rval">'+tl(ua[i][1].total)+'</span></div><div class="rbg"><div class="rfill" style="width:'+p+'%;background:#1a4a2e"></div></div></div>';}
+    if(ua.length){
+      ge('rap-urun-top').textContent=tl(grandTotal);
+      // Tablo başlığı
+      h+='<div style="display:-webkit-flex;display:flex;gap:4px;padding:5px 0;border-bottom:2px solid #e0e8e0;margin-bottom:6px">'
+        +'<span style="font-size:10px;font-weight:700;color:#888;-webkit-flex:1;flex:1">ÜRÜN</span>'
+        +'<span style="font-size:10px;font-weight:700;color:#888;min-width:40px;text-align:center">ADET</span>'
+        +'<span style="font-size:10px;font-weight:700;color:#888;min-width:45px;text-align:center">ADET%</span>'
+        +'<span style="font-size:10px;font-weight:700;color:#888;min-width:62px;text-align:right">TUTAR</span>'
+        +'<span style="font-size:10px;font-weight:700;color:#888;min-width:42px;text-align:right">TUTAR%</span>'
+        +'</div>';
+      for(var i=0;i<ua.length;i++){
+        var name=ua[i][0],d=ua[i][1];
+        var pctTutar=grandTotal>0?Math.round(d.total/grandTotal*100):0;
+        var pctAdet=grandQty>0?Math.round(d.qty/grandQty*100):0;
+        var barW=Math.round(d.total/maxU*100);
+        h+='<div style="margin-bottom:8px">'
+          +'<div style="display:-webkit-flex;display:flex;gap:4px;-webkit-align-items:center;align-items:center;margin-bottom:3px">'
+          +'<span style="font-size:12px;font-weight:600;-webkit-flex:1;flex:1">'+name+'</span>'
+          +'<span style="font-size:12px;font-weight:700;min-width:40px;text-align:center;color:#555">'+d.qty+'</span>'
+          +'<span style="font-size:11px;min-width:45px;text-align:center;background:#e8f2fc;color:#185fa5;border-radius:4px;padding:1px 4px;font-weight:700">%'+pctAdet+'</span>'
+          +'<span style="font-size:12px;font-weight:700;min-width:62px;text-align:right;color:#1a4a2e">'+tl(d.total)+'</span>'
+          +'<span style="font-size:11px;min-width:42px;text-align:right;background:#eef8f2;color:#1a7a4a;border-radius:4px;padding:1px 4px;font-weight:700">%'+pctTutar+'</span>'
+          +'</div>'
+          +'<div class="rbg"><div class="rfill" style="width:'+barW+'%;background:#185fa5"></div></div>'
+          +'</div>';
+      }
+      // Alt toplam satırı
+      h+='<div style="display:-webkit-flex;display:flex;gap:4px;padding:8px 0 2px;border-top:2px solid #e0e8e0;margin-top:4px">'
+        +'<span style="font-size:12px;font-weight:800;-webkit-flex:1;flex:1;color:#111">TOPLAM</span>'
+        +'<span style="font-size:12px;font-weight:800;min-width:40px;text-align:center;color:#111">'+grandQty+'</span>'
+        +'<span style="font-size:11px;min-width:45px;text-align:center;background:#e8f2fc;color:#185fa5;border-radius:4px;padding:1px 4px;font-weight:700">%100</span>'
+        +'<span style="font-size:12px;font-weight:800;min-width:62px;text-align:right;color:#1a4a2e">'+tl(grandTotal)+'</span>'
+        +'<span style="font-size:11px;min-width:42px;text-align:right;background:#eef8f2;color:#1a7a4a;border-radius:4px;padding:1px 4px;font-weight:700">%100</span>'
+        +'</div>';
+    }
     ge('rap-urun').innerHTML=h||'<div class="empty">Veri yok</div>';
     var sm={};for(var i=0;i<sales.length;i++){var hr=sales[i].hour!==undefined?sales[i].hour:parseInt(sales[i].time);if(!sm[hr])sm[hr]=0;sm[hr]+=sales[i].total;}
     var sa=[];for(var k in sm)sa.push([+k,sm[k]]);sa.sort(function(a,b){return a[0]-b[0];});var maxS=1;for(var i=0;i<sa.length;i++)if(sa[i][1]>maxS)maxS=sa[i][1];
@@ -876,8 +972,67 @@ function renderRapor(){
       for(var j=0;j<days.length;j++){var t2=results[days[j]]||0;if(t2===0&&days[j]!==todayKey())continue;var p2=Math.round(t2/maxG*100);h2+='<div class="rbar"><div class="rtop"><span class="rname">'+fmtD(days[j])+(days[j]===todayKey()?' <small style="color:#1a4a2e;font-size:10px">(bug\xfcn)</small>':'')+'</span><span class="rval">'+tl(t2)+'</span></div><div class="rbg"><div class="rfill" style="width:'+p2+'%;background:#b87a10"></div></div></div>';}
       ge('rap-7g').innerHTML=h2||'<div class="empty">Veri yok</div>';
       ge('rap-30-toplam').textContent=tl(grandTotal);
+      // Toplu ürün raporu — tüm günlerin satışlarını birleştir
+      buildTopluRapor(days,allSales);
     }});})(days[i]);}
   });
+}
+
+function buildTopluRapor(days,allSales){
+  // allSales henüz yok, tüm günleri Firebase'den çekerek birleştir
+  var tumSatislar=[],done2=0;
+  for(var i=0;i<days.length;i++){
+    (function(dk4){
+      getSales(dk4,function(s){
+        if(s&&s.length)tumSatislar=tumSatislar.concat(s);
+        done2++;
+        if(done2===days.length){
+          var um2={};
+          for(var a=0;a<tumSatislar.length;a++){
+            for(var b=0;b<tumSatislar[a].items.length;b++){
+              var it=tumSatislar[a].items[b];
+              if(!um2[it.name])um2[it.name]={qty:0,total:0};
+              um2[it.name].qty+=it.qty;
+              um2[it.name].total+=it.price*it.qty;
+            }
+          }
+          var ua2=[];for(var k in um2)ua2.push([k,um2[k]]);
+          ua2.sort(function(a,b){return b[1].total-a[1].total;});
+          var gT=ua2.reduce(function(a,x){return a+x[1].total;},0);
+          var gQ=ua2.reduce(function(a,x){return a+x[1].qty;},0);
+          ge('rap-toplu-top').textContent=tl(gT);
+          if(!ua2.length){ge('rap-toplu-urun').innerHTML='<div class="empty">Veri yok</div>';return;}
+          var h3='<div style="display:-webkit-flex;display:flex;gap:4px;padding:5px 0;border-bottom:2px solid #e0e0e0;margin-bottom:6px">'
+            +'<span style="font-size:10px;font-weight:700;color:#888;-webkit-flex:1;flex:1">ÜRÜN</span>'
+            +'<span style="font-size:10px;font-weight:700;color:#888;min-width:40px;text-align:center">ADET</span>'
+            +'<span style="font-size:10px;font-weight:700;color:#888;min-width:45px;text-align:center">ADET%</span>'
+            +'<span style="font-size:10px;font-weight:700;color:#888;min-width:62px;text-align:right">TUTAR</span>'
+            +'<span style="font-size:10px;font-weight:700;color:#888;min-width:42px;text-align:right">TUTAR%</span>'
+            +'</div>';
+          for(var i2=0;i2<ua2.length;i2++){
+            var nm=ua2[i2][0],d=ua2[i2][1];
+            var pA=gQ>0?Math.round(d.qty/gQ*100):0;
+            var pT=gT>0?Math.round(d.total/gT*100):0;
+            h3+='<div style="display:-webkit-flex;display:flex;gap:4px;-webkit-align-items:center;align-items:center;padding:5px 0;border-bottom:1px solid #f0f0f0">'
+              +'<span style="font-size:12px;font-weight:600;-webkit-flex:1;flex:1">'+nm+'</span>'
+              +'<span style="font-size:13px;font-weight:800;min-width:40px;text-align:center;color:#555">'+d.qty+'</span>'
+              +'<span style="font-size:11px;min-width:45px;text-align:center;background:#e8f2fc;color:#185fa5;border-radius:4px;padding:1px 4px;font-weight:700">%'+pA+'</span>'
+              +'<span style="font-size:12px;font-weight:700;min-width:62px;text-align:right;color:#6a1a4a">'+tl(d.total)+'</span>'
+              +'<span style="font-size:11px;min-width:42px;text-align:right;background:#f8eef5;color:#9b2d72;border-radius:4px;padding:1px 4px;font-weight:700">%'+pT+'</span>'
+              +'</div>';
+          }
+          h3+='<div style="display:-webkit-flex;display:flex;gap:4px;padding:8px 0 2px;border-top:2px solid #ddd;margin-top:4px">'
+            +'<span style="font-size:12px;font-weight:800;-webkit-flex:1;flex:1">TOPLAM</span>'
+            +'<span style="font-size:13px;font-weight:800;min-width:40px;text-align:center;color:#111">'+gQ+'</span>'
+            +'<span style="font-size:11px;min-width:45px;text-align:center;background:#e8f2fc;color:#185fa5;border-radius:4px;padding:1px 4px;font-weight:700">%100</span>'
+            +'<span style="font-size:12px;font-weight:800;min-width:62px;text-align:right;color:#6a1a4a">'+tl(gT)+'</span>'
+            +'<span style="font-size:11px;min-width:42px;text-align:right;background:#f8eef5;color:#9b2d72;border-radius:4px;padding:1px 4px;font-weight:700">%100</span>'
+            +'</div>';
+          ge('rap-toplu-urun').innerHTML=h3;
+        }
+      });
+    })(days[i]);
+  }
 }
 
 // ── HEADER ──
