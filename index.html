@@ -764,6 +764,21 @@ function delSale(id){
 }
 
 // ── KASA ──
+function calcNakPos(sales){
+  var nak=0,pos=0;
+  for(var i=0;i<sales.length;i++){
+    var s=sales[i];
+    if(s.pay==='karma'){
+      nak+=(s.karmaNakit||0);
+      pos+=(s.karmaPos||0);
+    } else if(s.pay==='nakit'){
+      nak+=s.total;
+    } else {
+      pos+=s.total;
+    }
+  }
+  return {nak:nak,pos:pos};
+}
 function addGelir(){var ac=ge('gel-ac').value.trim(),tu=parseFloat(ge('gel-tu').value);if(!ac||!tu||tu<=0)return;getGelirs(viewDate,function(arr){arr=arr||[];arr.push({id:Date.now(),aciklama:ac,tutar:tu});saveGelirs(viewDate,arr,function(){ge('gel-ac').value='';ge('gel-tu').value='';renderKasa();showToast('Ek gelir eklendi \u2713');});});}
 function addGider(){var ac=ge('gid-ac').value.trim(),tu=parseFloat(ge('gid-tu').value);if(!ac||!tu||tu<=0)return;getGiders(viewDate,function(arr){arr=arr||[];arr.push({id:Date.now(),aciklama:ac,tutar:tu});saveGiders(viewDate,arr,function(){ge('gid-ac').value='';ge('gid-tu').value='';renderKasa();showToast('Gider eklendi \u2713');});});}
 function delGelir(id){showConfirm('Bu ek gelir kaydı silinecek.',function(){getGelirs(viewDate,function(arr){arr=(arr||[]).filter(function(g){return g.id!==id;});saveGelirs(viewDate,arr,function(){renderKasa();});});});}
@@ -775,7 +790,7 @@ function renderKasa(){
     getGelirs(viewDate,function(gelirs){
       getGiders(viewDate,function(giders){
         sales=sales||[];gelirs=gelirs||[];giders=giders||[];
-        var nak=0,pos=0;for(var i=0;i<sales.length;i++){if(sales[i].pay==='nakit')nak+=sales[i].total;else pos+=sales[i].total;}
+        var np=calcNakPos(sales),nak=np.nak,pos=np.pos;
         var gelT=0;for(var i=0;i<gelirs.length;i++)gelT+=gelirs[i].tutar;
         var gidT=0;for(var i=0;i<giders.length;i++)gidT+=giders[i].tutar;
         ge('k-nak').textContent=tl(nak);ge('k-pos').textContent=tl(pos);ge('k-gel').textContent=tl(gelT);ge('k-gid').textContent=tl(gidT);ge('k-net').textContent=tl(nak+pos+gelT-gidT);
@@ -792,8 +807,8 @@ function startLiveWatch(){
   var dk=todayKey();
   fbListen('sales',dk,function(arr){
     arr=arr||[];
-    var nak=0,pos=0,um={};
-    for(var i=0;i<arr.length;i++){if(arr[i].pay==='nakit')nak+=arr[i].total;else pos+=arr[i].total;for(var j=0;j<arr[i].items.length;j++){var it=arr[i].items[j];if(!um[it.name])um[it.name]={qty:0,total:0};um[it.name].qty+=it.qty;um[it.name].total+=it.price*it.qty;}}
+    var np3=calcNakPos(arr),nak=np3.nak,pos=np3.pos,um={};
+    for(var i=0;i<arr.length;i++){for(var j=0;j<arr[i].items.length;j++){var it=arr[i].items[j];if(!um[it.name])um[it.name]={qty:0,total:0};um[it.name].qty+=it.qty;um[it.name].total+=it.price*it.qty;}}
     ge('lv-ciro').textContent=tl(nak+pos);
     ge('lv-adet').textContent=arr.length;
     ge('lv-nak').textContent=tl(nak);
@@ -828,7 +843,7 @@ function renderRapor(){
     var sa=[];for(var k in sm)sa.push([+k,sm[k]]);sa.sort(function(a,b){return a[0]-b[0];});var maxS=1;for(var i=0;i<sa.length;i++)if(sa[i][1]>maxS)maxS=sa[i][1];
     h='';for(var i=0;i<sa.length;i++){var p=Math.round(sa[i][1]/maxS*100);h+='<div class="rbar"><div class="rtop"><span class="rname">'+sa[i][0]+':00\u201359</span><span class="rval">'+tl(sa[i][1])+'</span></div><div class="rbg"><div class="rfill" style="width:'+p+'%;background:#185fa5"></div></div></div>';}
     ge('rap-saat').innerHTML=h||'<div class="empty">Veri yok</div>';
-    var nak=0,pos=0;for(var i=0;i<sales.length;i++){if(sales[i].pay==='nakit')nak+=sales[i].total;else pos+=sales[i].total;}
+    var np=calcNakPos(sales),nak=np.nak,pos=np.pos;
     var tot=nak+pos||1;
     ge('rap-ode').innerHTML='<div class="rbar"><div class="rtop"><span class="rname">Nakit</span><span class="rval">'+tl(nak)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(nak/tot*100)+'%;background:#1a4a2e"></div></div></div><div class="rbar"><div class="rtop"><span class="rname">POS/\u0130ban</span><span class="rval">'+tl(pos)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(pos/tot*100)+'%;background:#185fa5"></div></div></div>';
     var days=[],maxG=1;
@@ -878,7 +893,7 @@ function exportCSV(){
         var rows=[['Sirdanci Ayten Abla - '+fmtD(viewDate)],[]];
         rows.push(['=== SATISLAR ==='],['Saat','Urunler','Tutar','Odeme','Not']);
         for(var i=0;i<sales.length;i++){var s=sales[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'x ';desc+=s.items[j].name;}rows.push([s.time,desc,s.total,s.pay==='nakit'?'Nakit':'POS',s.note||'']);}
-        var nak=0,pos=0;for(var i=0;i<sales.length;i++){if(sales[i].pay==='nakit')nak+=sales[i].total;else pos+=sales[i].total;}
+        var np=calcNakPos(sales),nak=np.nak,pos=np.pos;
         var gelT=0;for(var i=0;i<gelirs.length;i++)gelT+=gelirs[i].tutar;
         var gidT=0;for(var i=0;i<giders.length;i++)gidT+=giders[i].tutar;
         rows.push([],['=== KASA ==='],['Nakit',nak],['POS',pos],['Ek Gelir',gelT],['Gider',gidT],['Net Ciro',nak+pos+gelT-gidT]);
@@ -896,7 +911,7 @@ function exportPDF(){
     getGelirs(viewDate,function(gelirs){
       getGiders(viewDate,function(giders){
         sales=sales||[];gelirs=gelirs||[];giders=giders||[];
-        var nak=0,pos=0;for(var i=0;i<sales.length;i++){if(sales[i].pay==='nakit')nak+=sales[i].total;else pos+=sales[i].total;}
+        var np=calcNakPos(sales),nak=np.nak,pos=np.pos;
         var gelT=0;for(var i=0;i<gelirs.length;i++)gelT+=gelirs[i].tutar;
         var gidT=0;for(var i=0;i<giders.length;i++)gidT+=giders[i].tutar;
         var net=nak+pos+gelT-gidT,um={};
