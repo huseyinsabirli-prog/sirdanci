@@ -267,8 +267,16 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <div class="lbl">Ürün Seç</div>
       <div id="m-mgrid" style="display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:7px;margin-bottom:12px"></div>
       <div id="m-basket" style="margin-bottom:8px"></div>
-      <div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;font-weight:800;font-size:16px;padding:8px 0;border-top:2px solid #f0f0f0;margin-bottom:10px">
+      <div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;font-weight:800;font-size:16px;padding:8px 0;border-top:2px solid #f0f0f0;margin-bottom:8px">
         <span>Toplam</span><span id="m-total">0 &#8378;</span>
+      </div>
+      <div id="m-revize-blok" style="display:none;background:#fef9ec;border:2px solid #f0c060;border-radius:9px;padding:10px 12px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:#b87a10;margin-bottom:6px">&#9998; Tutarı Revize Et (isteğe bağlı)</div>
+        <div style="display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:8px">
+          <input class="inp" id="m-revize-tutar" type="number" inputmode="decimal" placeholder="Farklı tutar gir (₺)" style="margin:0;-webkit-flex:1;flex:1;font-size:14px;padding:9px 11px" oninput="renderMRevizeFark()">
+          <button onclick="clearMRevize()" style="padding:9px 11px;background:#fff;border:1.5px solid #ddd;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:#888;-webkit-appearance:none;white-space:nowrap">Sıfırla</button>
+        </div>
+        <div id="m-revize-fark" style="font-size:11px;color:#b87a10;margin-top:5px;display:none"></div>
       </div>
       <div class="lbl">Ödeme Şekli</div>
       <div class="prow" style="margin-bottom:10px">
@@ -971,7 +979,10 @@ function openManuel(){
   mBasket={};mPayType='nakit';
   ge('m-pb-nak').className='pb on';
   ge('m-pb-pos').className='pb';
+  ge('m-pb-karma').className='pb';
   ge('m-not').value='';
+  if(ge('m-revize-tutar'))ge('m-revize-tutar').value='';
+  if(ge('m-revize-blok'))ge('m-revize-blok').style.display='none';
   buildMManuelGrid();
   renderMBasket();
 }
@@ -988,16 +999,28 @@ function buildMManuelGrid(){
 }
 function mAddItem(id){mBasket[id]=(mBasket[id]||0)+1;renderMBasket();}
 function mChgQ(id,d){mBasket[id]=(mBasket[id]||0)+d;if(mBasket[id]<=0)delete mBasket[id];renderMBasket();}
+function getMRevize(){var v=parseFloat(ge('m-revize-tutar').value);return(!isNaN(v)&&v>0)?v:0;}
+function getMFinalTotal(){var rev=getMRevize();return rev>0?rev:getMTotal();}
+function clearMRevize(){ge('m-revize-tutar').value='';renderMRevizeFark();}
+function renderMRevizeFark(){
+  var blok=ge('m-revize-blok');var total=getMTotal();
+  if(!total){blok.style.display='none';return;}
+  blok.style.display='block';
+  var rev=getMRevize();var farkEl=ge('m-revize-fark');
+  if(rev>0&&rev!==total){var fark=rev-total;farkEl.style.display='block';farkEl.textContent=(fark>0?'+ ':'')+fark.toLocaleString('tr-TR')+' ₺ fark (orijinal: '+total.toLocaleString('tr-TR')+' ₺)';farkEl.style.color=fark<0?'#c0392b':'#1a7a4a';}
+  else{farkEl.style.display='none';}
+}
 function getMTotal(){var t=0,keys=Object.keys(mBasket);for(var i=0;i<keys.length;i++){var m=findM(keys[i]);if(m)t+=m.price*mBasket[keys[i]];}return t;}
 function renderMBasket(){
   var keys=Object.keys(mBasket),total=getMTotal(),el=ge('m-basket');
   ge('m-savebtn').disabled=!keys.length;
-  if(!keys.length){el.innerHTML='<div class="bempty">Ürün eklenmedi</div>';ge('m-total').textContent='0 \u20ba';return;}
+  if(!keys.length){el.innerHTML='<div class="bempty">Ürün eklenmedi</div>';ge('m-total').textContent='0 \u20ba';ge('m-revize-blok').style.display='none';return;}
   var html='';
   for(var i=0;i<keys.length;i++){var id=keys[i],m=findM(id),q=mBasket[id];html+='<div class="bitem"><span class="biname">'+m.name+'</span><div class="qrow"><button class="qb" id="mqm-'+id+'">\u2212</button><span class="qn">'+q+'</span><button class="qb" id="mqp-'+id+'">+</button></div><span class="bip">'+(m.price*q).toLocaleString('tr-TR')+'\u20ba</span></div>';}
   el.innerHTML=html;
   for(var i=0;i<keys.length;i++){(function(kid){var bm=ge('mqm-'+kid),bp=ge('mqp-'+kid);if(bm){bm.addEventListener('touchend',function(e){e.preventDefault();mChgQ(kid,-1);},false);bm.addEventListener('click',function(e){e.preventDefault();mChgQ(kid,-1);},false);}if(bp){bp.addEventListener('touchend',function(e){e.preventDefault();mChgQ(kid,1);},false);bp.addEventListener('click',function(e){e.preventDefault();mChgQ(kid,1);},false);};})(keys[i]);}
-  ge('m-total').textContent=tl(total);
+  ge('m-total').textContent=tl(getMTotal());
+  renderMRevizeFark();
 }
 function mSetPay(t){
   mPayType=t;
@@ -1008,7 +1031,7 @@ function mSetPay(t){
   if(t==='karma'){if(ge('m-karma-nakit'))ge('m-karma-nakit').value='';if(ge('m-karma-pos'))ge('m-karma-pos').value='';if(ge('m-karma-durum'))ge('m-karma-durum').textContent='';}
 }
 function mCalcKarma(){
-  var total=getMTotal();
+  var total=getMFinalTotal();
   var n=parseFloat(ge('m-karma-nakit').value)||0;
   var p=parseFloat(ge('m-karma-pos').value)||0;
   var kalan=total-n-p;
@@ -1023,14 +1046,15 @@ function saveManuel(){
   var saat=ge('m-saat').value||'00:00';
   var not=ge('m-not').value.trim();
   if(!tarih){showToast('Tarih secin');return;}
-  var total=getMTotal();
+  var origTotal=getMTotal(), finalTotal=getMFinalTotal();
   var items=[];
   for(var i=0;i<keys.length;i++){var m=findM(keys[i]);items.push({id:keys[i],name:m.name,qty:mBasket[keys[i]],price:m.price});}
   var hour=parseInt(saat.split(':')[0])||0;
   var karmaNakit2=0,karmaPos2=0;
   if(mPayType==='karma'){karmaNakit2=parseFloat(ge('m-karma-nakit').value)||0;karmaPos2=parseFloat(ge('m-karma-pos').value)||0;}
   var karmaNotM=mPayType==='karma'?' [Nakit: '+karmaNakit2.toLocaleString('tr-TR')+'\u20ba + POS: '+karmaPos2.toLocaleString('tr-TR')+'\u20ba]':'';
-  var sale={id:Date.now(),time:saat,hour:hour,items:items,total:total,pay:mPayType,karmaNakit:mPayType==='karma'?karmaNakit2:null,karmaPos:mPayType==='karma'?karmaPos2:null,verilen:null,ust:null,note:not+(not?', ':'')+'\u{1F4DD}Manuel'+karmaNotM};
+  var revizeNotM=(origTotal!==finalTotal)?' [Revize: '+origTotal.toLocaleString('tr-TR')+'\u20ba \u2192 '+finalTotal.toLocaleString('tr-TR')+'\u20ba]':'';
+  var sale={id:Date.now(),time:saat,hour:hour,items:items,total:finalTotal,origTotal:origTotal!==finalTotal?origTotal:null,pay:mPayType,karmaNakit:mPayType==='karma'?karmaNakit2:null,karmaPos:mPayType==='karma'?karmaPos2:null,verilen:null,ust:null,note:not+(not?', ':'')+'\u{1F4DD}Manuel'+revizeNotM+karmaNotM};
   getSales(tarih,function(arr){
     arr=arr||[];arr.push(sale);
     saveSalesF(tarih,arr,function(){
@@ -1043,7 +1067,7 @@ function saveManuel(){
   });
 }
 
-window.openManuel=openManuel;window.closeManuel=closeManuel;window.mSetPay=mSetPay;window.saveManuel=saveManuel;window.clearRevize=clearRevize;window.calcKarma=calcKarma;window.mCalcKarma=mCalcKarma;
+window.openManuel=openManuel;window.closeManuel=closeManuel;window.mSetPay=mSetPay;window.saveManuel=saveManuel;window.clearRevize=clearRevize;window.clearMRevize=clearMRevize;window.renderMRevizeFark=renderMRevizeFark;window.calcKarma=calcKarma;window.mCalcKarma=mCalcKarma;
 
 
 
