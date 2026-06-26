@@ -194,6 +194,7 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <div class="prow">
         <button class="pb on" id="pb-nak" onclick="setPay('nakit')">&#128181; Nakit</button>
         <button class="pb" id="pb-pos" onclick="setPay('pos')">&#128179; POS / Iban</button>
+        <button class="pb" id="pb-karma" onclick="setPay('karma')">&#9654; Karma</button>
       </div>
       <div id="nakit-blok">
         <input class="inp" id="vpara" type="number" inputmode="decimal" placeholder="Verilen para (bos birakilabilir)" oninput="calcUst()">
@@ -201,6 +202,18 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
           <span class="ulbl" id="ustlbl">Para Ustu</span>
           <span class="uval" id="ustval">0 &#8378;</span>
         </div>
+      </div>
+      <div id="karma-blok" style="display:none;background:#f0f7ff;border:2px solid #b0d0f0;border-radius:9px;padding:10px 12px;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;color:#185fa5;margin-bottom:8px">&#9654; Karma Odeme</div>
+        <div style="display:-webkit-flex;display:flex;gap:8px;-webkit-align-items:center;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;min-width:44px;color:#555">Nakit:</span>
+          <input class="inp" id="karma-nakit" type="number" inputmode="decimal" placeholder="0 ₺" style="margin:0;-webkit-flex:1;flex:1;padding:9px 10px;font-size:14px" oninput="calcKarma()">
+        </div>
+        <div style="display:-webkit-flex;display:flex;gap:8px;-webkit-align-items:center;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;min-width:44px;color:#555">POS:</span>
+          <input class="inp" id="karma-pos" type="number" inputmode="decimal" placeholder="0 ₺" style="margin:0;-webkit-flex:1;flex:1;padding:9px 10px;font-size:14px" oninput="calcKarma()">
+        </div>
+        <div id="karma-durum" style="font-size:12px;color:#185fa5;margin-top:4px"></div>
       </div>
       <input class="inp" id="anot" placeholder="Aciklama (istege bagli)">
       <button class="bigbtn" id="savebtn" onclick="saveSale()" disabled>&#10003; Satisi Kaydet</button>
@@ -261,6 +274,19 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <div class="prow" style="margin-bottom:10px">
         <button class="pb on" id="m-pb-nak" onclick="mSetPay('nakit')">&#128181; Nakit</button>
         <button class="pb" id="m-pb-pos" onclick="mSetPay('pos')">&#128179; POS / Iban</button>
+        <button class="pb" id="m-pb-karma" onclick="mSetPay('karma')">&#9654; Karma</button>
+      </div>
+      <div id="m-karma-blok" style="display:none;background:#f0f7ff;border:2px solid #b0d0f0;border-radius:9px;padding:10px 12px;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;color:#185fa5;margin-bottom:8px">&#9654; Karma Odeme</div>
+        <div style="display:-webkit-flex;display:flex;gap:8px;-webkit-align-items:center;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;min-width:44px;color:#555">Nakit:</span>
+          <input class="inp" id="m-karma-nakit" type="number" inputmode="decimal" placeholder="0 ₺" style="margin:0;-webkit-flex:1;flex:1;padding:9px 10px;font-size:14px" oninput="mCalcKarma()">
+        </div>
+        <div style="display:-webkit-flex;display:flex;gap:8px;-webkit-align-items:center;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;min-width:44px;color:#555">POS:</span>
+          <input class="inp" id="m-karma-pos" type="number" inputmode="decimal" placeholder="0 ₺" style="margin:0;-webkit-flex:1;flex:1;padding:9px 10px;font-size:14px" oninput="mCalcKarma()">
+        </div>
+        <div id="m-karma-durum" style="font-size:12px;color:#185fa5;margin-top:4px"></div>
       </div>
       <input class="inp" id="m-not" placeholder="Açıklama (isteğe bağlı)">
       <button class="bigbtn" id="m-savebtn" onclick="saveManuel()" disabled>&#10003; Kaydet</button>
@@ -637,7 +663,26 @@ function renderBasket(){
   calcUst();
 }
 
-function setPay(t){payType=t;ge('pb-nak').className='pb'+(t==='nakit'?' on':'');ge('pb-pos').className='pb'+(t==='pos'?' on':'');ge('nakit-blok').style.display=t==='nakit'?'block':'none';if(t==='pos')ge('ustbox').style.display='none';}
+function setPay(t){
+  payType=t;
+  ge('pb-nak').className='pb'+(t==='nakit'?' on':'');
+  ge('pb-pos').className='pb'+(t==='pos'?' on':'');
+  ge('pb-karma').className='pb'+(t==='karma'?' on':'');
+  ge('nakit-blok').style.display=t==='nakit'?'block':'none';
+  ge('karma-blok').style.display=t==='karma'?'block':'none';
+  if(t!=='nakit')ge('ustbox').style.display='none';
+  if(t==='karma'){if(ge('karma-nakit'))ge('karma-nakit').value='';if(ge('karma-pos'))ge('karma-pos').value='';if(ge('karma-durum'))ge('karma-durum').textContent='';}
+}
+function calcKarma(){
+  var total=getFinalTotal();
+  var n=parseFloat(ge('karma-nakit').value)||0;
+  var p=parseFloat(ge('karma-pos').value)||0;
+  var kalan=total-n-p;
+  var el=ge('karma-durum');
+  if(kalan===0){el.textContent='\u2713 Tam tutar karsilandi';el.style.color='#1a7a4a';}
+  else if(kalan>0){el.textContent='Eksik: '+kalan.toLocaleString('tr-TR')+' \u20ba';el.style.color='#c0392b';}
+  else{el.textContent='Fazla: '+Math.abs(kalan).toLocaleString('tr-TR')+' \u20ba';el.style.color='#b87a10';}
+}
 function calcUst(){
   if(payType!=='nakit')return;
   var total=getFinalTotal();
@@ -658,9 +703,12 @@ function saveSale(){
   var origTotal=getTotal(), finalTotal=getFinalTotal(), items=[],now=new Date();
   for(var i=0;i<keys.length;i++){var m=findM(keys[i]);items.push({id:keys[i],name:m.name,qty:basket[keys[i]],price:m.price});}
   var ver=payType==='nakit'?(parseFloat(ge('vpara').value)||0):0;
+  var karmaNakit=0,karmaPos=0;
+  if(payType==='karma'){karmaNakit=parseFloat(ge('karma-nakit').value)||0;karmaPos=parseFloat(ge('karma-pos').value)||0;}
   var note=ge('anot').value.trim();
-  var revizeNot = (origTotal!==finalTotal)?' [Revize: '+origTotal.toLocaleString('tr-TR')+'\u20ba \u2192 '+finalTotal.toLocaleString('tr-TR')+'\u20ba]':'';
-  var sale={id:now.getTime(),time:pad(now.getHours())+':'+pad(now.getMinutes()),hour:now.getHours(),items:items,total:finalTotal,origTotal:origTotal!==finalTotal?origTotal:null,pay:payType,verilen:ver||null,ust:ver?ver-finalTotal:null,note:note+revizeNot};
+  var revizeNot=(origTotal!==finalTotal)?' [Revize: '+origTotal.toLocaleString('tr-TR')+'\u20ba \u2192 '+finalTotal.toLocaleString('tr-TR')+'\u20ba]':'';
+  var karmaНot=payType==='karma'?' [Nakit: '+karmaNakit.toLocaleString('tr-TR')+'\u20ba + POS: '+karmaPos.toLocaleString('tr-TR')+'\u20ba]':'';
+  var sale={id:now.getTime(),time:pad(now.getHours())+':'+pad(now.getMinutes()),hour:now.getHours(),items:items,total:finalTotal,origTotal:origTotal!==finalTotal?origTotal:null,pay:payType,karmaNakit:payType==='karma'?karmaNakit:null,karmaPos:payType==='karma'?karmaPos:null,verilen:ver||null,ust:ver?ver-finalTotal:null,note:note+revizeNot+karmaНot};
   var dk=todayKey();
   getSales(dk,function(arr){
     arr=arr||[];arr.push(sale);
@@ -668,6 +716,9 @@ function saveSale(){
       basket={};ge('vpara').value='';ge('anot').value='';ge('ustbox').style.display='none';
       if(ge('revize-tutar'))ge('revize-tutar').value='';
       if(ge('revize-blok'))ge('revize-blok').style.display='none';
+      if(ge('karma-nakit'))ge('karma-nakit').value='';
+      if(ge('karma-pos'))ge('karma-pos').value='';
+      setPay('nakit');
       renderBasket();updateHeader();renderSatis();renderKasa();
       showToast('Sat\u0131\u015f kaydedildi \u2713');
     });
@@ -681,7 +732,7 @@ function renderSatis(){
     var el=ge('satlist');
     if(!arr||!arr.length){el.innerHTML='<div class="empty">Bu vardiya i\xe7in sat\u0131\u015f kayd\u0131 yok</div>';return;}
     var rev=arr.slice().reverse(),html='',ids=[];
-    for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=(s.ust!==null&&s.ust!==undefined&&!isNaN(s.ust))?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta"><span class="badge '+(s.pay==='nakit'?'bn':'bp')+'">'+(s.pay==='nakit'?'Nakit':'POS')+'</span><span class="stime">'+s.time+'</span><button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
+    for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=(s.ust!==null&&s.ust!==undefined&&!isNaN(s.ust))?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';var payBadge=s.pay==='karma'?'<span class="badge" style="background:#e8f0fe;color:#185fa5">Karma</span>':('<span class="badge '+(s.pay==='nakit'?'bn':'bp')+'">'+(s.pay==='nakit'?'Nakit':'POS')+'</span>');ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta">'+payBadge+'<span class="stime">'+s.time+'</span><button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
     el.innerHTML=html;
     for(var i=0;i<ids.length;i++){(function(sid){var b=ge('ds-'+sid);if(!b)return;b.addEventListener('touchend',function(e){e.preventDefault();delSale(sid);},false);b.addEventListener('click',function(e){e.preventDefault();delSale(sid);},false);})(ids[i]);}
   });
@@ -804,6 +855,9 @@ function goTab(t){
     ge('nb-'+tabs[i]).className='navbtn'+(tabs[i]===t?' on':'');
     ge('pnl-'+tabs[i]).className='pnl'+(tabs[i]===t?' show':'');
   }
+  // Her sekme değişiminde viewDate'i bugüne sıfırla
+  viewDate=todayKey();
+  renderSatis();renderKasa();renderRapor();
   if(t==='canli') startLiveWatch();
 }
 function showToast(msg){var el=ge('toast');el.textContent=msg;el.className='show';clearTimeout(el._t);el._t=setTimeout(function(){el.className='';},2200);}
@@ -912,7 +966,24 @@ function renderMBasket(){
   for(var i=0;i<keys.length;i++){(function(kid){var bm=ge('mqm-'+kid),bp=ge('mqp-'+kid);if(bm){bm.addEventListener('touchend',function(e){e.preventDefault();mChgQ(kid,-1);},false);bm.addEventListener('click',function(e){e.preventDefault();mChgQ(kid,-1);},false);}if(bp){bp.addEventListener('touchend',function(e){e.preventDefault();mChgQ(kid,1);},false);bp.addEventListener('click',function(e){e.preventDefault();mChgQ(kid,1);},false);};})(keys[i]);}
   ge('m-total').textContent=tl(total);
 }
-function mSetPay(t){mPayType=t;ge('m-pb-nak').className='pb'+(t==='nakit'?' on':'');ge('m-pb-pos').className='pb'+(t==='pos'?' on':'');}
+function mSetPay(t){
+  mPayType=t;
+  ge('m-pb-nak').className='pb'+(t==='nakit'?' on':'');
+  ge('m-pb-pos').className='pb'+(t==='pos'?' on':'');
+  ge('m-pb-karma').className='pb'+(t==='karma'?' on':'');
+  ge('m-karma-blok').style.display=t==='karma'?'block':'none';
+  if(t==='karma'){if(ge('m-karma-nakit'))ge('m-karma-nakit').value='';if(ge('m-karma-pos'))ge('m-karma-pos').value='';if(ge('m-karma-durum'))ge('m-karma-durum').textContent='';}
+}
+function mCalcKarma(){
+  var total=getMTotal();
+  var n=parseFloat(ge('m-karma-nakit').value)||0;
+  var p=parseFloat(ge('m-karma-pos').value)||0;
+  var kalan=total-n-p;
+  var el=ge('m-karma-durum');
+  if(kalan===0){el.textContent='\u2713 Tam tutar karsilandi';el.style.color='#1a7a4a';}
+  else if(kalan>0){el.textContent='Eksik: '+kalan.toLocaleString('tr-TR')+' \u20ba';el.style.color='#c0392b';}
+  else{el.textContent='Fazla: '+Math.abs(kalan).toLocaleString('tr-TR')+' \u20ba';el.style.color='#b87a10';}
+}
 function saveManuel(){
   var keys=Object.keys(mBasket);if(!keys.length)return;
   var tarih=ge('m-tarih').value;
@@ -923,7 +994,10 @@ function saveManuel(){
   var items=[];
   for(var i=0;i<keys.length;i++){var m=findM(keys[i]);items.push({id:keys[i],name:m.name,qty:mBasket[keys[i]],price:m.price});}
   var hour=parseInt(saat.split(':')[0])||0;
-  var sale={id:Date.now(),time:saat,hour:hour,items:items,total:total,pay:mPayType,verilen:null,ust:null,note:not+(not?', ':'')+'\u{1F4DD}Manuel'};
+  var karmaNakit2=0,karmaPos2=0;
+  if(mPayType==='karma'){karmaNakit2=parseFloat(ge('m-karma-nakit').value)||0;karmaPos2=parseFloat(ge('m-karma-pos').value)||0;}
+  var karmaNotM=mPayType==='karma'?' [Nakit: '+karmaNakit2.toLocaleString('tr-TR')+'\u20ba + POS: '+karmaPos2.toLocaleString('tr-TR')+'\u20ba]':'';
+  var sale={id:Date.now(),time:saat,hour:hour,items:items,total:total,pay:mPayType,karmaNakit:mPayType==='karma'?karmaNakit2:null,karmaPos:mPayType==='karma'?karmaPos2:null,verilen:null,ust:null,note:not+(not?', ':'')+'\u{1F4DD}Manuel'+karmaNotM};
   getSales(tarih,function(arr){
     arr=arr||[];arr.push(sale);
     saveSalesF(tarih,arr,function(){
@@ -936,7 +1010,7 @@ function saveManuel(){
   });
 }
 
-window.openManuel=openManuel;window.closeManuel=closeManuel;window.mSetPay=mSetPay;window.saveManuel=saveManuel;window.clearRevize=clearRevize;
+window.openManuel=openManuel;window.closeManuel=closeManuel;window.mSetPay=mSetPay;window.saveManuel=saveManuel;window.clearRevize=clearRevize;window.calcKarma=calcKarma;window.mCalcKarma=mCalcKarma;
 
 
 
