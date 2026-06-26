@@ -349,7 +349,7 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
     <div class="card"><div class="lbl">Saatlik Dagilim</div><div id="rap-saat"></div></div>
     <div class="card"><div class="lbl">Odeme Dagilimi</div><div id="rap-ode"></div></div>
     <div class="card" style="padding:0;overflow:hidden">
-      <div style="background:#1a4a2e;padding:12px 14px;display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center">
+      <div style="background:linear-gradient(135deg,#b87a10,#d4920f);padding:12px 14px;display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center">
         <div>
           <div style="color:#fff;font-size:13px;font-weight:800;letter-spacing:.3px">&#128197; Son 30 Günlük Ciro</div>
           <div style="color:rgba(255,255,255,.65);font-size:10px;margin-top:2px">Satışı olan günler gösterilir</div>
@@ -979,7 +979,8 @@ function openManuel(){
   mBasket={};mPayType='nakit';
   ge('m-pb-nak').className='pb on';
   ge('m-pb-pos').className='pb';
-  ge('m-pb-karma').className='pb';
+  if(ge('m-pb-karma'))ge('m-pb-karma').className='pb';
+  if(ge('m-karma-blok'))ge('m-karma-blok').style.display='none';
   ge('m-not').value='';
   if(ge('m-revize-tutar'))ge('m-revize-tutar').value='';
   if(ge('m-revize-blok'))ge('m-revize-blok').style.display='none';
