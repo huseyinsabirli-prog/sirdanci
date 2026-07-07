@@ -36,7 +36,7 @@ body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont
 .mbtn{width:-webkit-calc(33.33% - 5px);width:calc(33.33% - 5px);padding:10px 6px 8px;background:#f5faf5;border:2px solid #cce5cc;border-radius:10px;text-align:left;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;gap:2px;cursor:pointer;outline:none;-webkit-appearance:none;-webkit-user-select:none;user-select:none}
 .mbtn.tap{background:#1a4a2e;border-color:#1a4a2e}
 .mbtn.tap .mn,.mbtn.tap .mp{color:#fff}
-.mn{font-size:11px;font-weight:700;color:#111;line-height:1.2;pointer-events:none}
+.mn{font-size:13px;font-weight:700;color:#111;line-height:1.2;pointer-events:none}
 .mp{font-size:12px;font-weight:800;color:#1a4a2e;pointer-events:none}
 .bempty{text-align:center;color:#bbb;font-size:13px;padding:14px 0}
 .bitem{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:8px 0;border-bottom:1px solid #f2f2f2;gap:6px}
@@ -348,7 +348,8 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
         <div class="sc sb"><div class="sl">POS/Iban</div><div class="sv" id="k-pos">0 &#8378;</div></div>
         <div class="sc sa"><div class="sl">Ek Gelir</div><div class="sv" id="k-gel">0 &#8378;</div></div>
         <div class="sc sr"><div class="sl">Gider</div><div class="sv" id="k-gid">0 &#8378;</div></div>
-        <div class="sc sdk"><div class="sl">Net Ciro</div><div class="sv" id="k-net">0 &#8378;</div></div>
+        <div class="sc" style="background:#1a7a4a;color:#fff;width:100%"><div class="sl">Net Kazanç (Nakit + POS + Ek Gelir)</div><div class="sv" id="k-netkaz">0 &#8378;</div></div>
+        <div class="sc sdk"><div class="sl">Net Ciro (Gider Düşüldükten Sonra)</div><div class="sv" id="k-net">0 &#8378;</div></div>
       </div>
     </div>
     <div class="card"><div class="lbl">Ek Gelir Listesi</div><div id="gelilist"></div></div>
@@ -584,18 +585,20 @@ function doLogout(){
 }
 
 var MENU=[
-  {id:'s',label:'Sirdan',name:'\u015e\u0131rdan',price:260},
-  {id:'m',label:'Mumbar',name:'Mumbar',price:300},
-  {id:'kt',label:'K.Pa\u00e7a Tam',name:'Kelle Pa\u00e7a (Tam)',price:300},
-  {id:'ka',label:'K.Pa\u00e7a Az',name:'Kelle Pa\u00e7a (Az)',price:200},
-  {id:'ct',label:'\u00c7orba Tam',name:'\u00c7orba (Tam)',price:150},
-  {id:'ca',label:'\u00c7orba Az',name:'\u00c7orba (Az)',price:100},
-  {id:'ay',label:'Ayran',name:'Ayran',price:40},
-  {id:'su',label:'Su',name:'Su',price:15},
-  {id:'so',label:'Soda',name:'Soda',price:15},
-  {id:'tm',label:'Tereya\u011fl\u0131 M.',name:'Tereya\u011fl\u0131 Mumbar',price:330},
-  {id:'sa',label:'S\u0131rdan+Ayran',name:'S\u0131rdan + Ayran',price:280},
-  {id:'ma',label:'Mumbar+Ayran',name:'Mumbar + Ayran',price:320}
+  {id:'s',  label:'Sirdan',              name:'\u015e\u0131rdan',              price:260, cat:'ana'},
+  {id:'m',  label:'Mumbar',              name:'Mumbar',                        price:300, cat:'ana'},
+  {id:'kt', label:'Kelle Pa\u00e7a Tam', name:'Kelle Pa\u00e7a (Tam)',         price:300, cat:'ana'},
+  {id:'ka', label:'Kelle Pa\u00e7a Az',  name:'Kelle Pa\u00e7a (Az)',          price:200, cat:'ana'},
+  {id:'ct', label:'\u00c7orba Tam',      name:'\u00c7orba (Tam)',               price:150, cat:'ana'},
+  {id:'ca', label:'\u00c7orba Az',       name:'\u00c7orba (Az)',                price:100, cat:'ana'},
+  {id:'tm', label:'Tereya\u011fl\u0131 Mumbar', name:'Tereya\u011fl\u0131 Mumbar', price:330, cat:'ana'},
+  {id:'sa', label:'S\u0131rdan + Ayran', name:'S\u0131rdan + Ayran',           price:280, cat:'ana'},
+  {id:'ma', label:'Mumbar + Ayran',      name:'Mumbar + Ayran',                price:320, cat:'ana'},
+  {id:'ay', label:'Ayran',               name:'Ayran',                         price:40,  cat:'icecek'},
+  {id:'su', label:'Su',                  name:'Su',                            price:15,  cat:'icecek'},
+  {id:'so', label:'Soda',                name:'Soda',                          price:15,  cat:'icecek'},
+  {id:'\u015ealgam', label:'\u015ealgam',name:'\u015ealgam',                   price:40,  cat:'icecek'},
+  {id:'co', label:'Cola',                name:'Cola',                          price:60,  cat:'icecek'}
 ];
 
 var basket={},payType='nakit',viewDate=todayKey();
@@ -674,10 +677,34 @@ if(fbOK && db){
 // ── MENÜ ──
 function buildMenu(){
   var el=ge('mgrid');if(!el)return;
-  var html='';
-  for(var i=0;i<MENU.length;i++){var m=MENU[i];html+='<button class="mbtn" id="mb-'+m.id+'"><span class="mn">'+m.label+'</span><span class="mp">'+m.price+'\u20ba</span></button>';}
+  var ana=MENU.filter(function(m){return m.cat==='ana';});
+  var ice=MENU.filter(function(m){return m.cat==='icecek';});
+  var html='<div style="display:-webkit-flex;display:flex;gap:8px;width:100%">';
+  // Sol — Ana Menü
+  html+='<div style="-webkit-flex:1;flex:1">';
+  html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#1a4a2e;margin-bottom:6px;padding-left:2px">&#127374; Ana Menü</div>';
+  for(var i=0;i<ana.length;i++){
+    var m=ana[i];
+    html+='<button class="mbtn" id="mb-'+m.id+'" style="width:100%;margin-bottom:6px"><span class="mn">'+m.label+'</span><span class="mp">'+m.price+'\u20ba</span></button>';
+  }
+  html+='</div>';
+  // Sağ — İçecekler
+  html+='<div style="width:100px;-webkit-flex-shrink:0;flex-shrink:0">';
+  html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#185fa5;margin-bottom:6px;padding-left:2px">&#127849; İçecek</div>';
+  for(var i=0;i<ice.length;i++){
+    var m=ice[i];
+    html+='<button class="mbtn" id="mb-'+m.id+'" style="width:100%;margin-bottom:6px;border-color:#b0d0f0;background:#f0f7ff"><span class="mn" style="color:#185fa5">'+m.label+'</span><span class="mp" style="color:#185fa5">'+m.price+'\u20ba</span></button>';
+  }
+  html+='</div>';
+  html+='</div>';
   el.innerHTML=html;
-  for(var i=0;i<MENU.length;i++){(function(mid){var btn=ge('mb-'+mid);if(!btn)return;btn.addEventListener('touchend',function(e){e.preventDefault();e.stopPropagation();addItem(mid);},false);btn.addEventListener('click',function(e){e.preventDefault();addItem(mid);},false);})(MENU[i].id);}
+  for(var i=0;i<MENU.length;i++){
+    (function(mid){
+      var btn=ge('mb-'+mid);if(!btn)return;
+      btn.addEventListener('touchend',function(e){e.preventDefault();e.stopPropagation();addItem(mid);},false);
+      btn.addEventListener('click',function(e){e.preventDefault();addItem(mid);},false);
+    })(MENU[i].id);
+  }
 }
 
 // ── SEPET ──
@@ -867,7 +894,9 @@ function renderKasa(){
         var np=calcNakPos(sales),nak=np.nak,pos=np.pos;
         var gelT=0;for(var i=0;i<gelirs.length;i++)gelT+=gelirs[i].tutar;
         var gidT=0;for(var i=0;i<giders.length;i++)gidT+=giders[i].tutar;
-        ge('k-nak').textContent=tl(nak);ge('k-pos').textContent=tl(pos);ge('k-gel').textContent=tl(gelT);ge('k-gid').textContent=tl(gidT);ge('k-net').textContent=tl(nak+pos+gelT-gidT);
+        ge('k-nak').textContent=tl(nak);ge('k-pos').textContent=tl(pos);ge('k-gel').textContent=tl(gelT);ge('k-gid').textContent=tl(gidT);
+  ge('k-netkaz').textContent=tl(nak+pos+gelT);
+  ge('k-net').textContent=tl(nak+pos+gelT-gidT);
         function blist(arr,col,delFn,cid){if(!arr.length){ge(cid).innerHTML='<div class="empty">Kay\u0131t yok</div>';return;}var h='',ids2=[];for(var i=0;i<arr.length;i++){ids2.push(arr[i].id);h+='<div class="srow"><div class="stop"><span>'+arr[i].aciklama+'</span><div class="smeta"><span style="font-weight:800;color:'+col+'">'+tl(arr[i].tutar)+'</span><button class="delbtn" id="dl-'+arr[i].id+'">Sil</button></div></div></div>';}ge(cid).innerHTML=h;for(var i=0;i<ids2.length;i++){(function(did){var b=ge('dl-'+did);if(!b)return;b.addEventListener('touchend',function(e){e.preventDefault();delFn(did);},false);b.addEventListener('click',function(e){e.preventDefault();delFn(did);},false);})(ids2[i]);}}
         blist(gelirs,'#185fa5',delGelir,'gelilist');blist(giders,'#c0392b',delGider,'gidelist');
       });
@@ -1140,8 +1169,17 @@ function closeManuel(){
 }
 function buildMManuelGrid(){
   var el=ge('m-mgrid');if(!el)return;
-  var html='';
-  for(var i=0;i<MENU.length;i++){var m=MENU[i];html+='<button class="mbtn" id="mm-'+m.id+'" style="width:calc(33.33% - 5px)"><span class="mn">'+m.label+'</span><span class="mp">'+m.price+'\u20ba</span></button>';}
+  var ana=MENU.filter(function(m){return m.cat==='ana';});
+  var ice=MENU.filter(function(m){return m.cat==='icecek';});
+  var html='<div style="display:-webkit-flex;display:flex;gap:8px;width:100%">';
+  html+='<div style="-webkit-flex:1;flex:1">';
+  html+='<div style="font-size:10px;font-weight:700;color:#1a4a2e;margin-bottom:5px">Ana Menü</div>';
+  for(var i=0;i<ana.length;i++){var m=ana[i];html+='<button class="mbtn" id="mm-'+m.id+'" style="width:100%;margin-bottom:5px"><span class="mn">'+m.label+'</span><span class="mp">'+m.price+'\u20ba</span></button>';}
+  html+='</div>';
+  html+='<div style="width:90px;-webkit-flex-shrink:0;flex-shrink:0">';
+  html+='<div style="font-size:10px;font-weight:700;color:#185fa5;margin-bottom:5px">İçecek</div>';
+  for(var i=0;i<ice.length;i++){var m=ice[i];html+='<button class="mbtn" id="mm-'+m.id+'" style="width:100%;margin-bottom:5px;border-color:#b0d0f0;background:#f0f7ff"><span class="mn" style="color:#185fa5">'+m.label+'</span><span class="mp" style="color:#185fa5">'+m.price+'\u20ba</span></button>';}
+  html+='</div></div>';
   el.innerHTML=html;
   for(var i=0;i<MENU.length;i++){(function(mid){var btn=ge('mm-'+mid);if(!btn)return;btn.addEventListener('touchend',function(e){e.preventDefault();mAddItem(mid);},false);btn.addEventListener('click',function(e){e.preventDefault();mAddItem(mid);},false);})(MENU[i].id);}
 }
