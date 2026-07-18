@@ -1026,13 +1026,14 @@ function renderRapor(){
                 if(t2>maxG)maxG=t2;
                 gunler.push({dk:days[j],ciro:t2,netKaz:netKaz,netCiro:netCiro});
               }
-              // Başlık satırı
-              var h2='<div style="display:-webkit-flex;display:flex;gap:4px;padding:4px 0 7px;border-bottom:2px solid #e0e0e0;margin-bottom:6px">'
-                +'<span style="font-size:10px;font-weight:700;color:#888;-webkit-flex:1;flex:1">GÜN</span>'
-                +'<span style="font-size:10px;font-weight:700;color:#b87a10;min-width:70px;text-align:right">CİRO</span>'
-                +'<span style="font-size:10px;font-weight:700;color:#185fa5;min-width:76px;text-align:right">NET KAZANÇ</span>'
-                +'<span style="font-size:10px;font-weight:700;color:#1a4a2e;min-width:72px;text-align:right">NET CİRO</span>'
-                +'</div>';
+              // Başlık satırı — açıklamalı ve üst toplamlar
+              var h2='<div style="margin-bottom:8px">'
+                +'<div style="display:-webkit-flex;display:flex;gap:4px;padding:5px 0 4px;border-bottom:2px solid #e0e0e0">'
+                +'<span style="font-size:9px;font-weight:700;color:#888;-webkit-flex:1;flex:1">GÜN</span>'
+                +'<div style="min-width:70px;text-align:right"><div style="font-size:9px;font-weight:700;color:#b87a10">CİRO</div><div style="font-size:8px;color:#aaa">(Nakit+POS)</div><div style="font-size:11px;font-weight:800;color:#b87a10">'+tl(grandCiro)+'</div></div>'
+                +'<div style="min-width:76px;text-align:right"><div style="font-size:9px;font-weight:700;color:#185fa5">NET KAZANÇ</div><div style="font-size:8px;color:#aaa">(Ciro+Ek Gelir)</div><div style="font-size:11px;font-weight:800;color:#185fa5">'+tl(grandNetKaz)+'</div></div>'
+                +'<div style="min-width:72px;text-align:right"><div style="font-size:9px;font-weight:700;color:#1a4a2e">NET CİRO</div><div style="font-size:8px;color:#aaa">(Net Kaz-Gider)</div><div style="font-size:11px;font-weight:800;color:#1a4a2e">'+tl(grandNetCiro)+'</div></div>'
+                +'</div></div>';
               for(var j=0;j<gunler.length;j++){
                 var g=gunler[j];
                 var p2=maxG>0?Math.round(g.ciro/maxG*100):0;
@@ -1046,13 +1047,6 @@ function renderRapor(){
                   +'<div class="rbg"><div class="rfill" style="width:'+p2+'%;background:#b87a10"></div></div>'
                   +'</div>';
               }
-              // Alt toplam
-              h2+='<div style="display:-webkit-flex;display:flex;gap:4px;padding:8px 0 2px;border-top:2px solid #ccc;margin-top:4px">'
-                +'<span style="font-size:12px;font-weight:800;-webkit-flex:1;flex:1">TOPLAM</span>'
-                +'<span style="font-size:12px;font-weight:800;min-width:70px;text-align:right;color:#b87a10">'+tl(grandCiro)+'</span>'
-                +'<span style="font-size:12px;font-weight:800;min-width:76px;text-align:right;color:#185fa5">'+tl(grandNetKaz)+'</span>'
-                +'<span style="font-size:12px;font-weight:800;min-width:72px;text-align:right;color:#1a4a2e">'+tl(grandNetCiro)+'</span>'
-                +'</div>';
               ge('rap-7g').innerHTML=h2||'<div class="empty">Veri yok</div>';
               ge('rap-30-toplam').textContent=tl(grandCiro);
               buildTopluRapor(days);
