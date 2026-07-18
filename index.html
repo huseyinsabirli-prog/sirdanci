@@ -591,7 +591,7 @@ var MENU=[
   {id:'ka', label:'Kelle Pa\u00e7a Az',  name:'Kelle Pa\u00e7a (Az)',          price:200, cat:'ana'},
   {id:'ct', label:'\u00c7orba Tam',      name:'\u00c7orba (Tam)',               price:150, cat:'ana'},
   {id:'ca', label:'\u00c7orba Az',       name:'\u00c7orba (Az)',                price:100, cat:'ana'},
-  {id:'tm', label:'Tereya\u011fl\u0131 Mumbar', name:'Tereya\u011fl\u0131 Mumbar', price:330, cat:'ana'},
+  {id:'ms', label:'Mimar Sinan',         name:'Mimar Sinan',                  price:300, cat:'ana'},
   {id:'sa', label:'S\u0131rdan + Ayran', name:'S\u0131rdan + Ayran',           price:280, cat:'ana'},
   {id:'ma', label:'Mumbar + Ayran',      name:'Mumbar + Ayran',                price:320, cat:'ana'},
   {id:'ay', label:'Ayran',               name:'Ayran',                         price:40,  cat:'icecek'},
@@ -678,7 +678,7 @@ if(fbOK && db){
 function buildMenu(){
   var el=ge('mgrid');if(!el)return;
   // Belirlenen sıra: çiftler halinde yan yana
-  var anaOrder=['s','m','sa','ma','kt','ka','ct','ca','tm'];
+  var anaOrder=['s','m','sa','ma','kt','ka','ct','ca','tm','ms'];
   var iceOrder=['ay','su','so','\u015ealgam','co'];
 
   var html='<div style="display:-webkit-flex;display:flex;gap:7px;width:100%;-webkit-align-items:flex-start;align-items:flex-start">';
@@ -1003,16 +1003,51 @@ function renderRapor(){
     var days=[],maxG=1;
     for(var i=29;i>=0;i--){var dd=new Date();dd.setDate(dd.getDate()-i);var dk2=dd.getFullYear()+'-'+pad(dd.getMonth()+1)+'-'+pad(dd.getDate());days.push(dk2);}
     // 30 günlük veriyi toplu çek
-    var results={},done=0;
-    for(var i=0;i<days.length;i++){(function(dk3){getSales(dk3,function(s2){results[dk3]=(s2||[]).reduce(function(a,s){return a+s.total;},0);done++;if(done===days.length){
-      var h2='',grandTotal=0;
-      for(var j=0;j<days.length;j++){var t2=results[days[j]]||0;grandTotal+=t2;if(t2===0&&days[j]!==todayKey())continue;if(t2>maxG)maxG=t2;}
-      for(var j=0;j<days.length;j++){var t2=results[days[j]]||0;if(t2===0&&days[j]!==todayKey())continue;var p2=Math.round(t2/maxG*100);h2+='<div class="rbar"><div class="rtop"><span class="rname">'+fmtD(days[j])+(days[j]===todayKey()?' <small style="color:#1a4a2e;font-size:10px">(bug\xfcn)</small>':'')+'</span><span class="rval">'+tl(t2)+'</span></div><div class="rbg"><div class="rfill" style="width:'+p2+'%;background:#b87a10"></div></div></div>';}
-      ge('rap-7g').innerHTML=h2||'<div class="empty">Veri yok</div>';
-      ge('rap-30-toplam').textContent=tl(grandTotal);
-      // Toplu ürün raporu — tüm günlerin satışlarını birleştir
-      buildTopluRapor(days);
-    }});})(days[i]);}
+    var results={},giderResults={},done=0,totalDays=days.length;
+    for(var i=0;i<days.length;i++){(function(dk3){
+      getSales(dk3,function(s2){
+        results[dk3]=(s2||[]).reduce(function(a,s){return a+s.total;},0);
+        // Gideri de çek
+        getGiders(dk3,function(gd){
+          getGelirs(dk3,function(gl){
+            var gidT=(gd||[]).reduce(function(a,g){return a+g.tutar;},0);
+            var gelT=(gl||[]).reduce(function(a,g){return a+g.tutar;},0);
+            giderResults[dk3]={gider:gidT,gelir:gelT};
+            done++;
+            if(done===totalDays){
+              var h2='',grandTotal=0,grandNet=0;
+              for(var j=0;j<days.length;j++){var t2=results[days[j]]||0;grandTotal+=t2;var gr=giderResults[days[j]]||{gider:0,gelir:0};grandNet+=t2+gr.gelir-gr.gider;if(t2===0&&days[j]!==todayKey())continue;if(t2>maxG)maxG=t2;}
+              for(var j=0;j<days.length;j++){
+                var t2=results[days[j]]||0;
+                if(t2===0&&days[j]!==todayKey())continue;
+                var p2=Math.round(t2/maxG*100);
+                var gr=giderResults[days[j]]||{gider:0,gelir:0};
+                var netCiro=t2+gr.gelir-gr.gider;
+                h2+='<div class="rbar">'
+                  +'<div class="rtop" style="margin-bottom:2px">'
+                  +'<span class="rname">'+fmtD(days[j])+(days[j]===todayKey()?' <small style="color:#1a4a2e;font-size:10px">(bug\xfcn)</small>':'')+'</span>'
+                  +'<div style="display:-webkit-flex;display:flex;gap:8px;-webkit-align-items:center;align-items:center">'
+                  +'<span class="rval">'+tl(t2)+'</span>'
+                  +'<span style="font-size:11px;font-weight:700;color:#c0392b;background:#fff0f0;padding:1px 6px;border-radius:4px">Net: '+tl(netCiro)+'</span>'
+                  +'</div></div>'
+                  +'<div class="rbg"><div class="rfill" style="width:'+p2+'%;background:#b87a10"></div></div>'
+                  +'</div>';
+              }
+              // Alt toplam
+              h2+='<div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;padding:8px 0 2px;border-top:2px solid #e0e0e0;margin-top:6px">'
+                +'<span style="font-size:12px;font-weight:800">30 Gün Toplam</span>'
+                +'<div style="display:-webkit-flex;display:flex;gap:8px">'
+                +'<span style="font-size:12px;font-weight:800;color:#b87a10">'+tl(grandTotal)+'</span>'
+                +'<span style="font-size:11px;font-weight:700;color:#c0392b;background:#fff0f0;padding:1px 6px;border-radius:4px">Net: '+tl(grandNet)+'</span>'
+                +'</div></div>';
+              ge('rap-7g').innerHTML=h2||'<div class="empty">Veri yok</div>';
+              ge('rap-30-toplam').textContent=tl(grandTotal);
+              buildTopluRapor(days);
+            }
+          });
+        });
+      });
+    })(days[i]);}
   });
 }
 
