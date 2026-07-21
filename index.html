@@ -33,7 +33,7 @@ body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont
 .card{background:#fff;border-radius:12px;padding:11px 12px;margin-bottom:8px;-webkit-box-shadow:0 1px 3px rgba(0,0,0,.07);box-shadow:0 1px 3px rgba(0,0,0,.07)}
 .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#999;margin-bottom:8px}
 #mgrid{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:7px}
-.mbtn{width:-webkit-calc(33.33% - 5px);width:calc(33.33% - 5px);padding:10px 6px 8px;background:#f5faf5;border:2px solid #cce5cc;border-radius:10px;text-align:left;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;gap:2px;cursor:pointer;outline:none;-webkit-appearance:none;-webkit-user-select:none;user-select:none}
+.mbtn{width:calc(50% - 3px);padding:10px 6px 8px;background:#f5faf5;border:2px solid #cce5cc;border-radius:10px;text-align:left;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;gap:2px;cursor:pointer;outline:none;-webkit-appearance:none;-webkit-user-select:none;user-select:none;-webkit-transition:background .15s,border-color .15s;transition:background .15s,border-color .15s}
 .mbtn.tap{background:#1a4a2e;border-color:#1a4a2e}
 .mbtn.tap .mn,.mbtn.tap .mp{color:#fff}
 .mn{font-size:13px;font-weight:700;color:#111;line-height:1.2;pointer-events:none}
@@ -752,7 +752,16 @@ function renderRevizeFark(){
     farkEl.style.display='none';
   }
 }
-function addItem(id){basket[id]=(basket[id]||0)+1;renderBasket();}
+function addItem(id){
+  basket[id]=(basket[id]||0)+1;
+  // Butonu yeşil yap, 400ms sonra normale dön
+  var btn=ge('mb-'+id);
+  if(btn){
+    btn.classList.add('tap');
+    setTimeout(function(){btn.classList.remove('tap');},400);
+  }
+  renderBasket();
+}
 function chgQ(id,d){basket[id]=(basket[id]||0)+d;if(basket[id]<=0)delete basket[id];renderBasket();}
 function getTotal(){var t=0,keys=Object.keys(basket);for(var i=0;i<keys.length;i++){var m=findM(keys[i]);if(m)t+=m.price*basket[keys[i]];}return t;}
 function clearBasket(){basket={};if(ge('revize-tutar'))ge('revize-tutar').value='';if(ge('revize-blok'))ge('revize-blok').style.display='none';renderBasket();showToast('Sepet temizlendi');}
