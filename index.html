@@ -12,14 +12,14 @@
 <style>
 *{-webkit-box-sizing:border-box;box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{height:100%;-webkit-text-size-adjust:100%}
-body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;color:#111;font-size:14px}
+body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;color:#111;font-size:17px}
 #app{display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;height:100vh;height:100dvh;max-width:500px;margin:0 auto;background:#f0f4f0}
-#hdr{background:#1a4a2e;color:#fff;padding:8px 14px;display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;-webkit-flex-shrink:0;flex-shrink:0;min-height:50px}
-#hdr h1{font-size:14px;font-weight:700}
-#hdr .sub{font-size:10px;opacity:.7;margin-top:1px}
-#hdr .cr{font-size:20px;font-weight:800;line-height:1.1}
+#hdr{background:#1a4a2e;color:#fff;padding:6px 14px;display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;-webkit-flex-shrink:0;flex-shrink:0;min-height:44px}
+#hdr h1{font-size:15px;font-weight:700}
+#hdr .sub{font-size:11px;opacity:.7;margin-top:1px}
+#hdr .cr{font-size:22px;font-weight:800;line-height:1.1}
 #hdr .crl{font-size:10px;opacity:.65}
-#syncbadge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:700;margin-top:3px;display:inline-block}
+#syncbadge{font-size:9px;padding:1px 5px;border-radius:8px;font-weight:700;margin-top:2px;display:inline-block}
 #syncbadge.ok{background:#2d6b43;color:#afffcb}
 #syncbadge.err{background:#a32d2d;color:#ffcaca}
 #syncbadge.sync{background:#b87a10;color:#fff3cc}
@@ -36,20 +36,20 @@ body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont
 .mbtn{width:calc(50% - 3px);padding:10px 6px 8px;background:#f5faf5;border:2px solid #cce5cc;border-radius:10px;text-align:left;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;gap:2px;cursor:pointer;outline:none;-webkit-appearance:none;-webkit-user-select:none;user-select:none;-webkit-transition:background .15s,border-color .15s;transition:background .15s,border-color .15s}
 .mbtn.tap{background:#1a4a2e;border-color:#1a4a2e}
 .mbtn.tap .mn,.mbtn.tap .mp{color:#fff}
-.mn{font-size:13px;font-weight:700;color:#111;line-height:1.2;pointer-events:none}
-.mp{font-size:12px;font-weight:800;color:#1a4a2e;pointer-events:none}
-.bempty{text-align:center;color:#bbb;font-size:13px;padding:14px 0}
+.mn{font-size:16px;font-weight:700;color:#111;line-height:1.2;pointer-events:none}
+.mp{font-size:15px;font-weight:800;color:#1a4a2e;pointer-events:none}
+.bempty{text-align:center;color:#bbb;font-size:15px;padding:14px 0}
 .bitem{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;padding:8px 0;border-bottom:1px solid #f2f2f2;gap:6px}
 .bitem:last-child{border-bottom:none}
-.biname{-webkit-flex:1;flex:1;font-size:13px;font-weight:500}
+.biname{-webkit-flex:1;flex:1;font-size:16px;font-weight:500}
 .qrow{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:6px}
 .qb{width:30px;height:30px;border-radius:50%;border:2px solid #cce5cc;background:#f5faf5;font-size:18px;font-weight:800;color:#1a4a2e;cursor:pointer;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;outline:none;-webkit-appearance:none}
 .qb:active{background:#1a4a2e;color:#fff;border-color:#1a4a2e}
 .qn{min-width:18px;text-align:center;font-size:15px;font-weight:800}
 .bip{min-width:58px;text-align:right;font-size:12px;font-weight:700;color:#1a4a2e}
-.totrow{display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;padding:10px 0 8px;border-top:2px solid #f0f0f0;font-weight:800;font-size:17px;margin-top:2px}
+.totrow{display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;padding:10px 0 8px;border-top:2px solid #f0f0f0;font-weight:800;font-size:18px;margin-top:2px}
 .prow{display:-webkit-flex;display:flex;gap:7px;margin-bottom:8px}
-.pb{-webkit-flex:1;flex:1;padding:10px 4px;border:2px solid #ddd;border-radius:9px;background:#f8f8f8;font-size:13px;font-weight:700;color:#888;cursor:pointer;text-align:center;outline:none;-webkit-appearance:none}
+.pb{-webkit-flex:1;flex:1;padding:11px 4px;border:2px solid #ddd;border-radius:9px;background:#f8f8f8;font-size:15px;font-weight:700;color:#888;cursor:pointer;text-align:center;outline:none;-webkit-appearance:none}
 .pb.on{background:#1a4a2e;color:#fff;border-color:#1a4a2e}
 .ustbox{border-radius:9px;padding:10px 12px;display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;margin-bottom:8px;border:2px solid}
 .ust-p{background:#eefbf4;border-color:#9fd4b8;color:#1a4a2e}
@@ -58,7 +58,7 @@ body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont
 .uval{font-size:20px;font-weight:800}
 .inp{width:100%;padding:11px 12px;border:2px solid #e0e8e0;border-radius:9px;font-size:14px;color:#111;background:#f8fbf8;margin-bottom:8px;outline:none;-webkit-appearance:none;display:block}
 .inp:focus{border-color:#1a4a2e}
-.bigbtn{width:100%;padding:13px;background:#1a4a2e;color:#fff;border:none;border-radius:11px;font-size:15px;font-weight:800;cursor:pointer;outline:none;-webkit-appearance:none;display:block}
+.bigbtn{width:100%;padding:14px;background:#1a4a2e;color:#fff;border:none;border-radius:11px;font-size:16px;font-weight:800;cursor:pointer;outline:none;-webkit-appearance:none;display:block}
 .bigbtn:disabled{opacity:.3}
 .bigbtn:active{opacity:.85}
 .sbtn{padding:9px 12px;border:2px solid #ddd;border-radius:8px;background:#f8f8f8;font-size:12px;font-weight:700;color:#444;cursor:pointer;display:-webkit-inline-flex;display:inline-flex;-webkit-align-items:center;align-items:center;gap:4px;outline:none;-webkit-appearance:none;white-space:nowrap}
@@ -75,7 +75,7 @@ body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont
 .srow{padding:9px 0;border-bottom:1px solid #f2f2f2}
 .srow:last-child{border-bottom:none}
 .stop{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:space-between;justify-content:space-between;margin-bottom:3px}
-.samt{font-size:15px;font-weight:800}
+.samt{font-size:16px;font-weight:800}
 .smeta{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:5px}
 .stime{font-size:10px;color:#aaa;font-weight:500}
 .sdet{font-size:11px;color:#888;margin-top:2px}
@@ -108,7 +108,7 @@ body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont
 #lerr{color:#ffaaaa;font-size:13px;margin-top:10px;text-align:center;min-height:18px}
 #llogo{font-size:50px;margin-bottom:12px}
 /* YETKİ ROZET */
-#rol-badge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;display:inline-block;margin-top:3px}
+#rol-badge{font-size:9px;padding:1px 6px;border-radius:8px;font-weight:700;display:inline-block;margin-left:3px}
 .rb-garson{background:#2d6b43;color:#afffcb}
 .rb-ortak{background:#185fa5;color:#cce4ff}
 /* SADECE İZLEME — garson olmayan kullanıcılar yazamaz */
@@ -132,6 +132,8 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
 .live-dot{width:8px;height:8px;border-radius:50%;background:#2d6b43;margin-right:6px;display:inline-block;-webkit-animation:pulse 1.5s infinite;animation:pulse 1.5s infinite}
 @-webkit-keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.periybtn{padding:5px 10px;border:2px solid #c49020;border-radius:7px;background:#fff;font-size:12px;font-weight:700;color:#b87a10;cursor:pointer;-webkit-appearance:none;outline:none}
+.periybtn.on{background:#b87a10;color:#fff;border-color:#b87a10}
 #toast{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 70px);left:50%;-webkit-transform:translateX(-50%) translateY(8px);transform:translateX(-50%) translateY(8px);background:#1a4a2e;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;z-index:9999;opacity:0;-webkit-transition:opacity .25s,-webkit-transform .25s;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;max-width:88vw;text-align:center}
 #toast.show{opacity:1;-webkit-transform:translateX(-50%) translateY(0);transform:translateX(-50%) translateY(0)}
 </style>
@@ -381,13 +383,22 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
     <div class="card" style="padding:0;overflow:hidden">
       <div style="background:linear-gradient(135deg,#b87a10,#d4920f);padding:12px 14px;display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center">
         <div>
-          <div style="color:#fff;font-size:13px;font-weight:800;letter-spacing:.3px">&#128197; Son 30 Günlük Ciro</div>
+          <div style="color:#fff;font-size:13px;font-weight:800;letter-spacing:.3px">&#128197; Periyodik Ciro Raporu</div>
           <div style="color:rgba(255,255,255,.65);font-size:10px;margin-top:2px">Satışı olan günler gösterilir</div>
         </div>
         <div style="text-align:right">
-          <div style="color:#afffcb;font-size:11px;font-weight:600">30 Gün Toplam</div>
+          <div style="color:#afffcb;font-size:11px;font-weight:600" id="rap-30-lbl">Toplam</div>
           <div style="color:#fff;font-size:18px;font-weight:800" id="rap-30-toplam">— ₺</div>
         </div>
+      </div>
+      <!-- Periyot Seçici -->
+      <div style="padding:8px 12px;background:#f5e6c0;display:-webkit-flex;display:flex;gap:6px;-webkit-flex-wrap:wrap;flex-wrap:wrap">
+        <button class="periybtn on" id="pery-365" onclick="setPeriod(365)">Son 1 Yıl</button>
+        <button class="periybtn" id="pery-90" onclick="setPeriod(90)">Son 3 Ay</button>
+        <button class="periybtn" id="pery-30" onclick="setPeriod(30)">Son 30 Gün</button>
+        <button class="periybtn" id="pery-14" onclick="setPeriod(14)">Son 2 Hafta</button>
+        <button class="periybtn" id="pery-7" onclick="setPeriod(7)">Son 1 Hafta</button>
+        <button class="periybtn" id="pery-1" onclick="setPeriod(1)">Bugün</button>
       </div>
       <div style="padding:12px 14px"><div id="rap-7g"></div></div>
     </div>
@@ -956,6 +967,14 @@ function startLiveWatch(){
 }
 
 // ── RAPOR ──
+var rapPeriod=365;
+function setPeriod(p){
+  rapPeriod=p;
+  var ids=[1,7,14,30,90,365];
+  for(var i=0;i<ids.length;i++){var b=ge('pery-'+ids[i]);if(b)b.className='periybtn'+(ids[i]===p?' on':'');}
+  renderRapor();
+}
+window.setPeriod=setPeriod;
 function renderRapor(){
   ge('rap-dlbl').textContent=fmtD(viewDate);
   getSales(viewDate,function(sales){
@@ -1010,7 +1029,9 @@ function renderRapor(){
     var tot=nak+pos||1;
     ge('rap-ode').innerHTML='<div class="rbar"><div class="rtop"><span class="rname">Nakit</span><span class="rval">'+tl(nak)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(nak/tot*100)+'%;background:#1a4a2e"></div></div></div><div class="rbar"><div class="rtop"><span class="rname">POS/\u0130ban</span><span class="rval">'+tl(pos)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(pos/tot*100)+'%;background:#185fa5"></div></div></div>';
     var days=[],maxG=1;
-    for(var i=29;i>=0;i--){var dd=new Date();dd.setDate(dd.getDate()-i);var dk2=dd.getFullYear()+'-'+pad(dd.getMonth()+1)+'-'+pad(dd.getDate());days.push(dk2);}
+    for(var i=rapPeriod-1;i>=0;i--){var dd=new Date();dd.setDate(dd.getDate()-i);var dk2=dd.getFullYear()+'-'+pad(dd.getMonth()+1)+'-'+pad(dd.getDate());days.push(dk2);}
+    // Toplam label güncelle
+    var lbl=ge('rap-30-lbl');if(lbl){var ltxt={1:'Bugün',7:'Son 7 Gün',14:'Son 14 Gün',30:'Son 30 Gün',90:'Son 3 Ay',365:'Son 1 Yıl'};lbl.textContent=(ltxt[rapPeriod]||'Toplam');}
     // 30 günlük veriyi toplu çek
     var results={},giderResults={},done=0,totalDays=days.length;
     for(var i=0;i<days.length;i++){(function(dk3){
