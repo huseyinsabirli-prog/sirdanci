@@ -598,11 +598,13 @@ function doLogout(){
 var MENU=[
   {id:'s',  label:'Sirdan',              name:'\u015e\u0131rdan',              price:260, cat:'ana'},
   {id:'m',  label:'Mumbar',              name:'Mumbar',                        price:300, cat:'ana'},
-  {id:'kt', label:'Kelle Pa\u00e7a Tam', name:'Kelle Pa\u00e7a (Tam)',         price:300, cat:'ana'},
-  {id:'ka', label:'Kelle Pa\u00e7a Az',  name:'Kelle Pa\u00e7a (Az)',          price:200, cat:'ana'},
-  {id:'ct', label:'\u00c7orba Tam',      name:'\u00c7orba (Tam)',               price:150, cat:'ana'},
-  {id:'ca', label:'\u00c7orba Az',       name:'\u00c7orba (Az)',                price:100, cat:'ana'},
+  {id:'kt', label:'Kelle Paça (Tam)', name:'Kelle Pa\u00e7a (Tam)',         price:300, cat:'ana'},
+  {id:'ka', label:'Kelle Paça (Az)',  name:'Kelle Pa\u00e7a (Az)',          price:200, cat:'ana'},
+  {id:'ct', label:'Çorba (Tam)',      name:'\u00c7orba (Tam)',               price:150, cat:'ana'},
+  {id:'ca', label:'Çorba (Az)',       name:'\u00c7orba (Az)',                price:100, cat:'ana'},
   {id:'ms', label:'Mimar Sinan',         name:'Mimar Sinan',                  price:300, cat:'ana'},
+  {id:'msa',label:'Mimar Sinan (Az)',      name:'Mimar Sinan (Az)',             price:200, cat:'ana'},
+  {id:'ik', label:'\u0130\u015fkembe',   name:'\u0130\u015fkembe',            price:300, cat:'ana'},
   {id:'sa', label:'S\u0131rdan + Ayran', name:'S\u0131rdan + Ayran',           price:280, cat:'ana'},
   {id:'ma', label:'Mumbar + Ayran',      name:'Mumbar + Ayran',                price:320, cat:'ana'},
   {id:'ay', label:'Ayran',               name:'Ayran',                         price:40,  cat:'icecek'},
@@ -689,7 +691,7 @@ if(fbOK && db){
 function buildMenu(){
   var el=ge('mgrid');if(!el)return;
   // Belirlenen sıra: çiftler halinde yan yana
-  var anaOrder=['s','m','sa','ma','kt','ka','ct','ca','tm','ms'];
+  var anaOrder=['s','m','sa','ma','kt','ka','ct','ca','tm','ms','msa','ik'];
   var iceOrder=['ay','su','so','\u015ealgam','co'];
 
   var html='<div style="display:-webkit-flex;display:flex;gap:7px;width:100%;-webkit-align-items:flex-start;align-items:flex-start">';
@@ -715,7 +717,7 @@ function buildMenu(){
     var m=findM(iceOrder[i]);
     if(!m)continue;
     html+='<button class="mbtn" id="mb-'+m.id+'" style="width:100%;margin-bottom:5px;padding:8px 6px 7px;border-color:#b0d0f0;background:#f0f7ff">'
-      +'<span class="mn" style="color:#185fa5">'+m.label+'</span>'
+      +'<span class="mn" style="color:#1a4a2e">'+m.label+'</span>'
       +'<span class="mp" style="color:#185fa5">'+m.price+'\u20ba</span>'
       +'</button>';
   }
