@@ -351,6 +351,7 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
         <div class="sc sa"><div class="sl">Ek Gelir</div><div class="sv" id="k-gel">0 &#8378;</div></div>
         <div class="sc sr"><div class="sl">Gider</div><div class="sv" id="k-gid">0 &#8378;</div></div>
         <div class="sc" style="background:#1a7a4a;color:#fff;width:100%"><div class="sl">Net Kazanç (Nakit + POS + Ek Gelir)</div><div class="sv" id="k-netkaz">0 &#8378;</div></div>
+        <div class="sc" style="background:#6a1a4a;color:#fff;width:100%"><div class="sl">&#128072; Babama Giden Para (Nakit + Ek Gelir - Gider)</div><div class="sv" id="k-baba">0 &#8378;</div></div>
         <div class="sc sdk"><div class="sl">Net Ciro (Gider Düşüldükten Sonra)</div><div class="sv" id="k-net">0 &#8378;</div></div>
       </div>
     </div>
@@ -934,6 +935,7 @@ function renderKasa(){
         var gidT=0;for(var i=0;i<giders.length;i++)gidT+=giders[i].tutar;
         ge('k-nak').textContent=tl(nak);ge('k-pos').textContent=tl(pos);ge('k-gel').textContent=tl(gelT);ge('k-gid').textContent=tl(gidT);
   ge('k-netkaz').textContent=tl(nak+pos+gelT);
+  ge('k-baba').textContent=tl(nak+gelT-gidT);
   ge('k-net').textContent=tl(nak+pos+gelT-gidT);
         function blist(arr,col,delFn,cid){if(!arr.length){ge(cid).innerHTML='<div class="empty">Kay\u0131t yok</div>';return;}var h='',ids2=[];for(var i=0;i<arr.length;i++){ids2.push(arr[i].id);h+='<div class="srow"><div class="stop"><span>'+arr[i].aciklama+'</span><div class="smeta"><span style="font-weight:800;color:'+col+'">'+tl(arr[i].tutar)+'</span><button class="delbtn" id="dl-'+arr[i].id+'">Sil</button></div></div></div>';}ge(cid).innerHTML=h;for(var i=0;i<ids2.length;i++){(function(did){var b=ge('dl-'+did);if(!b)return;b.addEventListener('touchend',function(e){e.preventDefault();delFn(did);},false);b.addEventListener('click',function(e){e.preventDefault();delFn(did);},false);})(ids2[i]);}}
         blist(gelirs,'#185fa5',delGelir,'gelilist');blist(giders,'#c0392b',delGider,'gidelist');
@@ -1040,32 +1042,36 @@ function renderRapor(){
     for(var i=0;i<days.length;i++){(function(dk3){
       getSales(dk3,function(s2){
         results[dk3]=(s2||[]).reduce(function(a,s){return a+s.total;},0);
+        var np5=calcNakPos(s2||[]);
         getGiders(dk3,function(gd){
           getGelirs(dk3,function(gl){
             var gidT=(gd||[]).reduce(function(a,g){return a+g.tutar;},0);
             var gelT=(gl||[]).reduce(function(a,g){return a+g.tutar;},0);
-            giderResults[dk3]={gider:gidT,gelir:gelT};
+            giderResults[dk3]={gider:gidT,gelir:gelT,nak:np5.nak,pos:np5.pos};
             done++;
             if(done===totalDays){
-              var grandCiro=0,grandNetKaz=0,grandNetCiro=0;
+              var grandCiro=0,grandNetKaz=0,grandNetCiro=0,grandBaba=0;
               var gunler=[];
               for(var j=0;j<days.length;j++){
                 var t2=results[days[j]]||0;
-                var gr=giderResults[days[j]]||{gider:0,gelir:0};
+                var gr=giderResults[days[j]]||{gider:0,gelir:0,nak:0,pos:0};
                 var netKaz=t2+gr.gelir;
                 var netCiro=t2+gr.gelir-gr.gider;
+                var baba=(gr.nak||0)+gr.gelir-gr.gider;
+                var s2day=giderResults['_sales_'+days[j]]||null;
                 if(t2===0&&gr.gelir===0&&days[j]!==todayKey())continue;
-                grandCiro+=t2;grandNetKaz+=netKaz;grandNetCiro+=netCiro;
+                grandCiro+=t2;grandNetKaz+=netKaz;grandNetCiro+=netCiro;grandBaba+=baba;
                 if(t2>maxG)maxG=t2;
-                gunler.push({dk:days[j],ciro:t2,netKaz:netKaz,netCiro:netCiro});
+                gunler.push({dk:days[j],ciro:t2,netKaz:netKaz,netCiro:netCiro,baba:baba,gr:gr});
               }
               // Başlık satırı — açıklamalı ve üst toplamlar
               var h2='<div style="margin-bottom:8px">'
                 +'<div style="display:-webkit-flex;display:flex;gap:4px;padding:5px 0 4px;border-bottom:2px solid #e0e0e0">'
                 +'<span style="font-size:9px;font-weight:700;color:#888;-webkit-flex:1;flex:1">GÜN</span>'
-                +'<div style="min-width:70px;text-align:right"><div style="font-size:9px;font-weight:700;color:#b87a10">CİRO</div><div style="font-size:8px;color:#aaa">(Nakit+POS)</div><div style="font-size:11px;font-weight:800;color:#b87a10">'+tl(grandCiro)+'</div></div>'
-                +'<div style="min-width:76px;text-align:right"><div style="font-size:9px;font-weight:700;color:#185fa5">NET KAZANÇ</div><div style="font-size:8px;color:#aaa">(Ciro+Ek Gelir)</div><div style="font-size:11px;font-weight:800;color:#185fa5">'+tl(grandNetKaz)+'</div></div>'
-                +'<div style="min-width:72px;text-align:right"><div style="font-size:9px;font-weight:700;color:#1a4a2e">NET CİRO</div><div style="font-size:8px;color:#aaa">(Net Kaz-Gider)</div><div style="font-size:11px;font-weight:800;color:#1a4a2e">'+tl(grandNetCiro)+'</div></div>'
+                +'<div style="min-width:62px;text-align:right"><div style="font-size:9px;font-weight:700;color:#b87a10">CİRO</div><div style="font-size:8px;color:#aaa">(Nakit+POS)</div><div style="font-size:11px;font-weight:800;color:#b87a10">'+tl(grandCiro)+'</div></div>'
+                +'<div style="min-width:66px;text-align:right"><div style="font-size:9px;font-weight:700;color:#185fa5">NET KAZANÇ</div><div style="font-size:8px;color:#aaa">(Ciro+Gelir)</div><div style="font-size:11px;font-weight:800;color:#185fa5">'+tl(grandNetKaz)+'</div></div>'
+                +'<div style="min-width:64px;text-align:right"><div style="font-size:9px;font-weight:700;color:#6a1a4a">BABAYA</div><div style="font-size:8px;color:#aaa">(Nak+Gel-Gider)</div><div style="font-size:11px;font-weight:800;color:#6a1a4a">'+tl(grandBaba)+'</div></div>'
+                +'<div style="min-width:62px;text-align:right"><div style="font-size:9px;font-weight:700;color:#1a4a2e">NET CİRO</div><div style="font-size:8px;color:#aaa">(Kazanç-Gider)</div><div style="font-size:11px;font-weight:800;color:#1a4a2e">'+tl(grandNetCiro)+'</div></div>'
                 +'</div></div>';
               for(var j=0;j<gunler.length;j++){
                 var g=gunler[j];
@@ -1073,9 +1079,10 @@ function renderRapor(){
                 h2+='<div style="margin-bottom:7px">'
                   +'<div style="display:-webkit-flex;display:flex;gap:4px;-webkit-align-items:center;align-items:center;margin-bottom:3px">'
                   +'<span style="font-size:12px;font-weight:600;-webkit-flex:1;flex:1">'+fmtD(g.dk)+(g.dk===todayKey()?' <small style="color:#1a4a2e;font-size:10px">(bugün)</small>':'')+'</span>'
-                  +'<span style="font-size:12px;font-weight:700;min-width:70px;text-align:right;color:#b87a10">'+tl(g.ciro)+'</span>'
-                  +'<span style="font-size:12px;font-weight:700;min-width:76px;text-align:right;color:#185fa5">'+tl(g.netKaz)+'</span>'
-                  +'<span style="font-size:12px;font-weight:700;min-width:72px;text-align:right;color:#1a4a2e">'+tl(g.netCiro)+'</span>'
+                  +'<span style="font-size:12px;font-weight:700;min-width:62px;text-align:right;color:#b87a10">'+tl(g.ciro)+'</span>'
+                  +'<span style="font-size:12px;font-weight:700;min-width:66px;text-align:right;color:#185fa5">'+tl(g.netKaz)+'</span>'
+                  +'<span style="font-size:12px;font-weight:700;min-width:64px;text-align:right;color:#6a1a4a">'+tl(g.baba)+'</span>'
+                  +'<span style="font-size:12px;font-weight:700;min-width:62px;text-align:right;color:#1a4a2e">'+tl(g.netCiro)+'</span>'
                   +'</div>'
                   +'<div class="rbg"><div class="rfill" style="width:'+p2+'%;background:#b87a10"></div></div>'
                   +'</div>';
