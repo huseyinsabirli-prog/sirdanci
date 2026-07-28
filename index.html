@@ -623,7 +623,7 @@ var MENU=[
   {id:'ka', label:'Kelle Paça (Az)',  name:'Kelle Pa\u00e7a (Az)',          price:200, cat:'ana'},
   {id:'ct', label:'Çorba (Tam)',      name:'\u00c7orba (Tam)',               price:150, cat:'ana'},
   {id:'ca', label:'Çorba (Az)',       name:'\u00c7orba (Az)',                price:100, cat:'ana'},
-  {id:'ms', label:'Mimar Sinan',         name:'Mimar Sinan',                  price:300, cat:'ana'},
+  {id:'pa', label:'Pa\u00e7a',            name:'Pa\u00e7a',                    price:350, cat:'ana'},
   {id:'tm', label:'Tereya\u011fl\u0131 Mumbar', name:'Tereya\u011fl\u0131 Mumbar', price:330, cat:'ana'},
   {id:'msa',label:'Mimar Sinan (Az)',      name:'Mimar Sinan (Az)',             price:200, cat:'ana'},
   {id:'ik', label:'\u0130\u015fkembe',   name:'\u0130\u015fkembe',            price:300, cat:'ana'},
@@ -713,7 +713,7 @@ if(fbOK && db){
 function buildMenu(){
   var el=ge('mgrid');if(!el)return;
   // Belirlenen sıra: çiftler halinde yan yana
-  var anaOrder=['s','m','sa','ma','kt','ka','ct','ca','ms','tm','msa','ik'];
+  var anaOrder=['s','m','sa','ma','kt','ka','ct','ca','pa','ms','tm','msa','ik'];
   var iceOrder=['ay','su','so','\u015ealgam','co'];
 
   var html='<div style="display:-webkit-flex;display:flex;gap:7px;width:100%;-webkit-align-items:flex-start;align-items:flex-start">';
