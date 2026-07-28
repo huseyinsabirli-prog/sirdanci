@@ -1187,12 +1187,12 @@ function renderRapor(){
 }
 
 function buildTopluRapor(days){
-  // allSales henüz yok, tüm günleri Firebase'den çekerek birleştir
-  var tumSatislar=[],done2=0;
+  var tumSatislar=[],gunSatislar=[],done2=0;
   for(var i=0;i<days.length;i++){
     (function(dk4){
       getSales(dk4,function(s){
         if(s&&s.length)tumSatislar=tumSatislar.concat(s);
+        gunSatislar.push({dk:dk4,sales:s||[]});
         done2++;
         if(done2===days.length){
           var um2={};
@@ -1238,74 +1238,57 @@ function buildTopluRapor(days){
             +'</div>';
           ge('rap-toplu-urun').innerHTML=h3;
           // Haftanın günlerine göre analiz
-          buildGunAnaliz(tumSatislar);
+          buildGunAnaliz(gunSatislar);
         }
       });
     })(days[i]);
   }
 }
 
-function buildGunAnaliz(tumSatislar){
+function buildGunAnaliz(tumSatislarVeTarihler){
   var gunAd=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
   var gunEmoji=['☀️','😴','💪','🌟','⚡','🎉','🔥'];
   var gunMap={};
-  for(var g=0;g<7;g++) gunMap[g]={toplam:0,adet:0,gunler:[]};
+  for(var g=0;g<7;g++) gunMap[g]={toplam:0,hafSay:0};
 
-  // Her satışın tarihini ve günü bul
-  for(var i=0;i<tumSatislar.length;i++){
-    var s=tumSatislar[i];
-    if(!s.id)continue;
-    // id timestamp'ten tarihi çıkar
-    var dt=new Date(s.id);
+  // tumSatislarVeTarihler = [{dk:'2026-06-22', sales:[...]}, ...]
+  for(var i=0;i<tumSatislarVeTarihler.length;i++){
+    var item=tumSatislarVeTarihler[i];
+    var dk=item.dk;
+    var s2=item.sales;
+    if(!s2||!s2.length)continue;
+    // Tarihin haftanın hangi günü olduğunu bul
+    var dt=new Date(dk+'T12:00:00'); // öğlen saati — gün kayması olmaz
     var gun=dt.getDay();
-    // Vardiya mantığı: gece 07'den önce ise önceki gün
-    if(dt.getHours()<7){
-      var prev=new Date(dt);prev.setDate(prev.getDate()-1);gun=prev.getDay();
-    }
-    gunMap[gun].toplam+=s.total;
-    gunMap[gun].adet++;
+    var gunTop=s2.reduce(function(a,s){return a+s.total;},0);
+    gunMap[gun].toplam+=gunTop;
+    gunMap[gun].hafSay++;
   }
 
-  // Hangi günler birden fazla haftada geçmiş? Gün sayısını hesapla
-  // Tüm benzersiz tarihleri bul
-  var tarihGun={};
-  for(var i=0;i<tumSatislar.length;i++){
-    var s=tumSatislar[i];if(!s.id)continue;
-    var dt=new Date(s.id);
-    if(dt.getHours()<7){dt.setDate(dt.getDate()-1);}
-    var dk=dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
-    if(!tarihGun[dk])tarihGun[dk]=dt.getDay();
-  }
-  // Her günün kaç farklı tarihte geçtiğini say
-  var gunTarihSay={0:0,1:0,2:0,3:0,4:0,5:0,6:0};
-  for(var dk in tarihGun) gunTarihSay[tarihGun[dk]]++;
-
-  // Ortalama hesapla
   var gunOrt=[];
   for(var g=0;g<7;g++){
-    var say=gunTarihSay[g]||1;
-    var ort=gunMap[g].adet>0?Math.round(gunMap[g].toplam/say):0;
-    gunOrt.push({gun:g,ad:gunAd[g],emoji:gunEmoji[g],toplam:gunMap[g].toplam,satisAdet:gunMap[g].adet,hafSay:say,ort:ort});
+    var say=gunMap[g].hafSay||0;
+    var ort=say>0?Math.round(gunMap[g].toplam/say):0;
+    gunOrt.push({gun:g,ad:gunAd[g],emoji:gunEmoji[g],toplam:gunMap[g].toplam,hafSay:say,ort:ort});
   }
-  gunOrt.sort(function(a,b){return a.ort-b.ort;});
 
-  var enDusuk=gunOrt[0];
-  var enYuksek=gunOrt[gunOrt.length-1];
-  var maxOrt=enYuksek.ort||1;
+  var aktifGunler=gunOrt.filter(function(g){return g.hafSay>0;});
+  aktifGunler.sort(function(a,b){return a.ort-b.ort;});
+  var enDusuk=aktifGunler[0];
+  var enYuksek=aktifGunler[aktifGunler.length-1];
+  var maxOrt=enYuksek?enYuksek.ort:1;
 
   var el=ge('rap-gun-en-dusuk');
-  if(el) el.textContent=enDusuk.ad+' (Ort: '+tl(enDusuk.ort)+')';
+  if(el) el.textContent=enDusuk?enDusuk.ad+' (Ort: '+tl(enDusuk.ort)+')':'—';
 
-  var h='';
-  // Sıralamayı günün sırasına göre göster (Pazar=0 ... Cumartesi=6)
   var sirali=gunOrt.slice().sort(function(a,b){return a.gun-b.gun;});
-  h+='<div style="margin-bottom:8px;font-size:11px;color:#888">Sadece satış yapılan günler hesaba katılmıştır. Hafta sayısı o güne ait benzersiz gün sayısıdır.</div>';
+  var h='<div style="margin-bottom:8px;font-size:11px;color:#888">Her gün için o güne ait tüm vardiyaların ortalaması gösterilmektedir.</div>';
   for(var i=0;i<sirali.length;i++){
     var g=sirali[i];
-    if(g.satisAdet===0)continue;
+    if(g.hafSay===0)continue;
     var pct=Math.round(g.ort/maxOrt*100);
-    var isDusuk=g.gun===enDusuk.gun;
-    var isYuksek=g.gun===enYuksek.gun;
+    var isDusuk=enDusuk&&g.gun===enDusuk.gun;
+    var isYuksek=enYuksek&&g.gun===enYuksek.gun;
     var renk=isDusuk?'#c0392b':isYuksek?'#1a7a4a':'#185fa5';
     var barRenk=isDusuk?'#c0392b':isYuksek?'#1a7a4a':'#185fa5';
     h+='<div style="margin-bottom:10px;padding:8px 10px;border-radius:9px;background:'+(isDusuk?'#fff0f0':isYuksek?'#eef8f2':'#f5f8ff')+';border:2px solid '+(isDusuk?'#f0c0c0':isYuksek?'#b2d9c0':'#c0d4f0')+';">'
@@ -1318,12 +1301,11 @@ function buildGunAnaliz(tumSatislar){
       +'<div style="display:-webkit-flex;display:flex;gap:12px;margin-bottom:5px">'
       +'<div style="text-align:center"><div style="font-size:9px;color:#888;font-weight:600">ORTALAMA CİRO</div><div style="font-size:15px;font-weight:800;color:'+renk+'">'+tl(g.ort)+'</div></div>'
       +'<div style="text-align:center"><div style="font-size:9px;color:#888;font-weight:600">TOPLAM</div><div style="font-size:13px;font-weight:700;color:#555">'+tl(g.toplam)+'</div></div>'
-      +'<div style="text-align:center"><div style="font-size:9px;color:#888;font-weight:600">HAFTA SAYISI</div><div style="font-size:13px;font-weight:700;color:#555">'+g.hafSay+' gün</div></div>'
+      +'<div style="text-align:center"><div style="font-size:9px;color:#888;font-weight:600">VARDİYA SAYISI</div><div style="font-size:13px;font-weight:700;color:#555">'+g.hafSay+'</div></div>'
       +'</div>'
       +'<div class="rbg"><div class="rfill" style="width:'+pct+'%;background:'+barRenk+'"></div></div>'
       +'</div>';
   }
-
   var ortEl=ge('rap-gun-ort');
   if(ortEl) ortEl.innerHTML=h||'<div class="empty">Yeterli veri yok</div>';
 }
