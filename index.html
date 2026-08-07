@@ -925,6 +925,12 @@ function delSale(id){
 }
 
 // ── KASA ──
+function normalizeName(name){
+  if(!name)return name;
+  // Mimar Sinan ve Mimar Sinan (Tam) aynı ürün
+  if(name==='Mimar Sinan')return 'Mimar Sinan (Tam)';
+  return name;
+}
 function calcNakPos(sales){
   var nak=0,pos=0;
   for(var i=0;i<sales.length;i++){
@@ -972,7 +978,7 @@ function startLiveWatch(){
   fbListen('sales',dk,function(arr){
     arr=arr||[];
     var np3=calcNakPos(arr),nak=np3.nak,pos=np3.pos,um={};
-    for(var i=0;i<arr.length;i++){for(var j=0;j<arr[i].items.length;j++){var it=arr[i].items[j];if(!um[it.name])um[it.name]={qty:0,total:0};um[it.name].qty+=it.qty;um[it.name].total+=it.price*it.qty;}}
+    for(var i=0;i<arr.length;i++){for(var j=0;j<arr[i].items.length;j++){var it=arr[i].items[j];if(!um[normalizeName(it.name)])um[normalizeName(it.name)]={qty:0,total:0};um[normalizeName(it.name)].qty+=it.qty;um[normalizeName(it.name)].total+=it.price*it.qty;}}
     ge('lv-ciro').textContent=tl(nak+pos);
     ge('lv-adet').textContent=arr.length;
     ge('lv-nak').textContent=tl(nak);
@@ -1073,7 +1079,7 @@ function renderRapor(){
   getSales(viewDate,function(sales){
     sales=sales||[];
     var um={};
-    for(var i=0;i<sales.length;i++)for(var j=0;j<sales[i].items.length;j++){var it=sales[i].items[j];if(!um[it.name])um[it.name]={qty:0,total:0};um[it.name].qty+=it.qty;um[it.name].total+=it.price*it.qty;}
+    for(var i=0;i<sales.length;i++)for(var j=0;j<sales[i].items.length;j++){var it=sales[i].items[j];if(!um[normalizeName(it.name)])um[normalizeName(it.name)]={qty:0,total:0};um[normalizeName(it.name)].qty+=it.qty;um[normalizeName(it.name)].total+=it.price*it.qty;}
     var ua=[];for(var k in um)ua.push([k,um[k]]);ua.sort(function(a,b){return b[1].total-a[1].total;});
     var grandTotal=ua.reduce(function(a,x){return a+x[1].total;},0);
     var grandQty=ua.reduce(function(a,x){return a+x[1].qty;},0);
@@ -1200,9 +1206,9 @@ function buildTopluRapor(days){
           for(var a=0;a<tumSatislar.length;a++){
             for(var b=0;b<tumSatislar[a].items.length;b++){
               var it=tumSatislar[a].items[b];
-              if(!um2[it.name])um2[it.name]={qty:0,total:0};
-              um2[it.name].qty+=it.qty;
-              um2[it.name].total+=it.price*it.qty;
+              if(!um2[normalizeName(it.name)])um2[normalizeName(it.name)]={qty:0,total:0};
+              um2[normalizeName(it.name)].qty+=it.qty;
+              um2[normalizeName(it.name)].total+=it.price*it.qty;
             }
           }
           var ua2=[];for(var k in um2)ua2.push([k,um2[k]]);
@@ -1370,7 +1376,7 @@ function exportPDF(){
         var gelT=0;for(var i=0;i<gelirs.length;i++)gelT+=gelirs[i].tutar;
         var gidT=0;for(var i=0;i<giders.length;i++)gidT+=giders[i].tutar;
         var net=nak+pos+gelT-gidT,um={};
-        for(var i=0;i<sales.length;i++)for(var j=0;j<sales[i].items.length;j++){var it=sales[i].items[j];if(!um[it.name])um[it.name]={qty:0,total:0};um[it.name].qty+=it.qty;um[it.name].total+=it.price*it.qty;}
+        for(var i=0;i<sales.length;i++)for(var j=0;j<sales[i].items.length;j++){var it=sales[i].items[j];if(!um[normalizeName(it.name)])um[normalizeName(it.name)]={qty:0,total:0};um[normalizeName(it.name)].qty+=it.qty;um[normalizeName(it.name)].total+=it.price*it.qty;}
         var rows='';for(var i=0;i<sales.length;i++){var s=sales[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}rows+='<tr><td>'+s.time+'</td><td>'+desc+(s.note?' ('+s.note+')':'')+'</td><td align="right"><b>'+s.total.toLocaleString('tr-TR')+'\u20ba</b></td><td>'+(s.pay==='nakit'?'Nakit':'POS')+'</td></tr>';}
         var ua=[];for(var k in um)ua.push([k,um[k]]);ua.sort(function(a,b){return b[1].total-a[1].total;});
         var urows='';for(var i=0;i<ua.length;i++)urows+='<tr><td>'+ua[i][0]+'</td><td>'+ua[i][1].qty+'</td><td align="right"><b>'+ua[i][1].total.toLocaleString('tr-TR')+'\u20ba</b></td></tr>';
