@@ -145,7 +145,7 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
   <h2>Sirdanci Ayten Abla</h2>
   <div class="lsub">Devam etmek icin giris yapin</div>
   <input class="linp" id="lemail" type="email" inputmode="email" placeholder="E-posta">
-  <input class="linp" id="lpass" type="password" placeholder="Sifre">
+  <input class="linp" id="lpass" type="password" placeholder="Sifre" onkeydown="if(event.keyCode===13)doLogin()">
   <button class="lbtn" id="lbtn" onclick="doLogin()">Giris Yap</button>
   <div id="lerr"></div>
 </div>
@@ -1325,7 +1325,6 @@ function renderRaporDays(days){
         });
       });
     })(days[i]);}
-}
 }
 
 function buildTopluRapor(days){
