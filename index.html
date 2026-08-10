@@ -400,6 +400,22 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
         <button class="periybtn" id="pery-14" onclick="setPeriod(14)">Son 2 Hafta</button>
         <button class="periybtn" id="pery-7" onclick="setPeriod(7)">Son 1 Hafta</button>
         <button class="periybtn" id="pery-1" onclick="setPeriod(1)">Bugün</button>
+        <button class="periybtn" id="pery-custom" onclick="toggleCustomDate()" style="border-color:#8b0000;color:#8b0000">&#128197; Tarih Seç</button>
+      </div>
+      <!-- Özel Tarih Aralığı -->
+      <div id="custom-date-blok" style="display:none;padding:8px 12px;background:#fff3f0;border-top:1px solid #f0c0a0">
+        <div style="display:-webkit-flex;display:flex;gap:8px;-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-items:center;align-items:center">
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#888;margin-bottom:3px">BAŞLANGIÇ</div>
+            <input class="inp" id="date-from" type="date" style="margin:0;padding:8px 10px;font-size:13px;width:140px">
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;color:#888;margin-bottom:3px">BİTİŞ</div>
+            <input class="inp" id="date-to" type="date" style="margin:0;padding:8px 10px;font-size:13px;width:140px">
+          </div>
+          <button class="sbtn g" onclick="applyCustomDate()" style="margin-top:16px">Uygula</button>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:5px">Tek gün için başlangıç = bitiş yapabilirsiniz</div>
       </div>
       <div style="padding:12px 14px"><div id="rap-7g"></div>
         <div style="display:-webkit-flex;display:flex;gap:8px;margin-top:10px">
@@ -471,6 +487,16 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
     </div>
   </div>
 
+  <!-- MENÜ YÖNETİMİ -->
+  <div class="pnl" id="pnl-menu">
+    <div class="card" style="background:#fff3cd;border:2px solid #ffc107">
+      <div style="font-size:13px;font-weight:700;color:#856404">&#9888; Sadece garson girişiyle değiştirilebilir. Fiyat değişikliği yeni satışlara uygulanır, geçmiş kayıtlar etkilenmez.</div>
+    </div>
+    <div class="card" id="menu-yonetim-content">
+      <div class="empty">Yükleniyor...</div>
+    </div>
+  </div>
+
 </div>
 
 <div id="nav">
@@ -493,6 +519,10 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
   <button class="navbtn" id="nb-canli" onclick="goTab('canli')">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     Canli
+  </button>
+  <button class="navbtn" id="nb-menu" onclick="goTab('menu')">
+    <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    Menü
   </button>
 </div>
 
@@ -579,6 +609,7 @@ function showApp(){
   }
   buildMenu();renderBasket();setupBtns();updateHeader();renderSatis();renderKasa();renderRapor();
   updateManuelBtn();
+  loadMenuPrices();
   // Ortak girince direkt Satışlar sekmesine yönlendir
   if(!isGarson){ setTimeout(function(){goTab('sat');},100); }
   if(fbOK && db){
@@ -1004,9 +1035,108 @@ function setPeriod(p){
   rapPeriod=p;
   var ids=[1,7,14,30,90,365];
   for(var i=0;i<ids.length;i++){var b=ge('pery-'+ids[i]);if(b)b.className='periybtn'+(ids[i]===p?' on':'');}
+  ge('pery-custom').className='periybtn';
+  if(ge('custom-date-blok'))ge('custom-date-blok').style.display='none';
   renderRapor();
 }
+function toggleCustomDate(){
+  var b=ge('custom-date-blok');
+  b.style.display=b.style.display==='none'?'block':'none';
+  // Bugünkü tarihi default yap
+  var t=todayKey();
+  if(!ge('date-from').value)ge('date-from').value=t;
+  if(!ge('date-to').value)ge('date-to').value=t;
+}
+function applyCustomDate(){
+  var from=ge('date-from').value;
+  var to=ge('date-to').value;
+  if(!from||!to){showToast('Tarih seçin');return;}
+  if(from>to){showToast('Başlangıç bitiş\'ten büyük olamaz');return;}
+  // Periyot butonlarını pasif yap
+  var ids=[1,7,14,30,90,365];
+  for(var i=0;i<ids.length;i++){var b=ge('pery-'+ids[i]);if(b)b.className='periybtn';}
+  ge('pery-custom').className='periybtn on';
+  ge('custom-date-blok').style.display='none';
+  renderRaporWithRange(from,to);
+}
+window.toggleCustomDate=toggleCustomDate;
+window.applyCustomDate=applyCustomDate;
+
+function renderRaporWithRange(from,to){
+  // from ile to arasındaki tüm günleri hesapla
+  var days=[];
+  var cur=new Date(from+'T12:00:00');
+  var end=new Date(to+'T12:00:00');
+  while(cur<=end){
+    days.push(cur.getFullYear()+'-'+pad(cur.getMonth()+1)+'-'+pad(cur.getDate()));
+    cur.setDate(cur.getDate()+1);
+  }
+  // Rapor başlığını güncelle
+  var lbl=ge('rap-30-lbl');
+  if(lbl)lbl.textContent=fmtD(from)+(from!==to?' - '+fmtD(to):'');
+  renderRaporDays(days);
+}
 window.setPeriod=setPeriod;
+
+// Menü Yönetimi
+function buildMenuYonetim(){
+  if(!isGarson){
+    ge('menu-yonetim-content').innerHTML='<div class="empty">&#128274; Sadece garson girişiyle erişilebilir</div>';
+    return;
+  }
+  var h='<div class="lbl">Fiyat Güncelle</div>';
+  for(var i=0;i<MENU.length;i++){
+    var m=MENU[i];
+    h+='<div style="display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0f0">'
+      +'<span style="font-size:15px;font-weight:600;-webkit-flex:1;flex:1">'+m.label+'</span>'
+      +'<input class="inp" id="mp-'+m.id+'" type="number" inputmode="decimal" value="'+m.price+'" style="width:90px;margin:0;padding:9px 10px;font-size:15px;font-weight:700;text-align:right">'
+      +'<span style="font-size:13px;color:#888">₺</span>'
+      +'</div>';
+  }
+  h+='<button class="bigbtn" style="margin-top:14px" onclick="saveMenuPrices()">&#10003; Fiyatları Kaydet</button>';
+  ge('menu-yonetim-content').innerHTML=h;
+}
+function saveMenuPrices(){
+  var changed=[];
+  for(var i=0;i<MENU.length;i++){
+    var inp=ge('mp-'+MENU[i].id);
+    if(!inp)continue;
+    var yeni=parseFloat(inp.value);
+    if(yeni>0&&yeni!==MENU[i].price){
+      changed.push(MENU[i].label+': '+MENU[i].price+'₺ → '+yeni+'₺');
+      MENU[i].price=yeni;
+    }
+  }
+  if(!changed.length){showToast('Değişiklik yok');return;}
+  // Firebase'e kaydet
+  if(fbOK&&db){
+    var priceMap={};
+    for(var i=0;i<MENU.length;i++)priceMap[MENU[i].id]=MENU[i].price;
+    db.ref('menuFiyat').set(priceMap).then(function(){
+      buildMenu();buildMManuelGrid();
+      showToast('Fiyatlar güncellendi ✓');
+      buildMenuYonetim();
+    }).catch(function(){showToast('Kayıt hatası');});
+  } else {
+    buildMenu();buildMManuelGrid();
+    showToast('Fiyatlar güncellendi (yerel)');
+    buildMenuYonetim();
+  }
+}
+window.saveMenuPrices=saveMenuPrices;
+
+// Firebase'den fiyatları yükle
+function loadMenuPrices(){
+  if(!fbOK||!db)return;
+  db.ref('menuFiyat').once('value').then(function(snap){
+    var val=snap.val();
+    if(!val)return;
+    for(var i=0;i<MENU.length;i++){
+      if(val[MENU[i].id]!==undefined)MENU[i].price=val[MENU[i].id];
+    }
+    buildMenu();buildMManuelGrid();
+  });
+}
 
 // Ciro raporu için veriyi global tut
 var ciroRaporData=[];
@@ -1131,8 +1261,14 @@ function renderRapor(){
     for(var i=rapPeriod-1;i>=0;i--){var dd=new Date();dd.setDate(dd.getDate()-i);var dk2=dd.getFullYear()+'-'+pad(dd.getMonth()+1)+'-'+pad(dd.getDate());days.push(dk2);}
     // Toplam label güncelle
     var lbl=ge('rap-30-lbl');if(lbl){var ltxt={1:'Bugün',7:'Son 7 Gün',14:'Son 14 Gün',30:'Son 30 Gün',90:'Son 3 Ay',365:'Son 1 Yıl'};lbl.textContent=(ltxt[rapPeriod]||'Toplam');}
-    // 30 günlük veriyi toplu çek
-    var results={},giderResults={},done=0,totalDays=days.length;
+    renderRaporDays(days);
+  });
+}
+
+function renderRaporDays(days){
+  var maxG=1;
+  var results={},giderResults={},done=0,totalDays=days.length;
+  if(!totalDays){ge('rap-7g').innerHTML='<div class="empty">Veri yok</div>';return;}
     for(var i=0;i<days.length;i++){(function(dk3){
       getSales(dk3,function(s2){
         results[dk3]=(s2||[]).reduce(function(a,s){return a+s.total;},0);
@@ -1158,7 +1294,6 @@ function renderRapor(){
                 if(t2>maxG)maxG=t2;
                 gunler.push({dk:days[j],ciro:t2,netKaz:netKaz,netCiro:netCiro,baba:baba,gr:gr});
               }
-              // Başlık satırı — açıklamalı ve üst toplamlar
               var h2='<div style="margin-bottom:8px">'
                 +'<div style="display:-webkit-flex;display:flex;gap:4px;padding:5px 0 4px;border-bottom:2px solid #e0e0e0">'
                 +'<span style="font-size:9px;font-weight:700;color:#888;-webkit-flex:1;flex:1">GÜN</span>'
@@ -1182,7 +1317,7 @@ function renderRapor(){
                   +'</div>';
               }
               ge('rap-7g').innerHTML=h2||'<div class="empty">Veri yok</div>';
-              ciroRaporData=gunler; // export için sakla
+              ciroRaporData=gunler;
               ge('rap-30-toplam').textContent=tl(grandCiro);
               buildTopluRapor(days);
             }
@@ -1190,7 +1325,7 @@ function renderRapor(){
         });
       });
     })(days[i]);}
-  });
+}
 }
 
 function buildTopluRapor(days){
@@ -1328,13 +1463,14 @@ function updateHeader(){
 
 function shiftDay(d){var dt=new Date(viewDate);dt.setDate(dt.getDate()+d);var nk=dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());if(nk>todayKey())return;viewDate=nk;renderSatis();renderKasa();renderRapor();}
 function goTab(t){
-  var tabs=['adi','sat','kas','rap','canli'];
+  var tabs=['adi','sat','kas','rap','canli','menu'];
   for(var i=0;i<tabs.length;i++){
     ge('nb-'+tabs[i]).className='navbtn'+(tabs[i]===t?' on':'');
     ge('pnl-'+tabs[i]).className='pnl'+(tabs[i]===t?' show':'');
   }
   renderSatis();renderKasa();renderRapor();
   if(t==='canli') startLiveWatch();
+  if(t==='menu') buildMenuYonetim();
 }
 function showToast(msg){var el=ge('toast');el.textContent=msg;el.className='show';clearTimeout(el._t);el._t=setTimeout(function(){el.className='';},2200);}
 
