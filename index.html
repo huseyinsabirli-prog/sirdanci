@@ -716,9 +716,8 @@ if(fbOK && db){
 // ── MENÜ ──
 function buildMenu(){
   var el=ge('mgrid');if(!el)return;
-  // Belirlenen sıra: çiftler halinde yan yana
-  var anaOrder=['s','m','sa','ma','kt','ka','ct','ca','pa','ms','tm','msa','ik'];
-  var iceOrder=['ay','su','so','\u015ealgam','co'];
+  var ana=MENU.filter(function(m){return m.cat==='ana';});
+  var ice=MENU.filter(function(m){return m.cat==='icecek';});
 
   var html='<div style="display:-webkit-flex;display:flex;gap:7px;width:100%;-webkit-align-items:flex-start;align-items:flex-start">';
 
@@ -726,9 +725,8 @@ function buildMenu(){
   html+='<div style="-webkit-flex:1;flex:1">';
   html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#1a4a2e;margin-bottom:5px">&#127374; Ana Menü</div>';
   html+='<div style="display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:5px">';
-  for(var i=0;i<anaOrder.length;i++){
-    var m=findM(anaOrder[i]);
-    if(!m)continue;
+  for(var i=0;i<ana.length;i++){
+    var m=ana[i];
     html+='<button class="mbtn" id="mb-'+m.id+'" style="width:calc(50% - 3px);padding:8px 7px 7px;margin-bottom:0">'
       +'<span class="mn">'+m.label+'</span>'
       +'<span class="mp">'+m.price+'\u20ba</span>'
@@ -739,9 +737,8 @@ function buildMenu(){
   // Sağ — İçecekler (tek kolon)
   html+='<div style="width:82px;-webkit-flex-shrink:0;flex-shrink:0">';
   html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#185fa5;margin-bottom:5px">&#127849; İçecek</div>';
-  for(var i=0;i<iceOrder.length;i++){
-    var m=findM(iceOrder[i]);
-    if(!m)continue;
+  for(var i=0;i<ice.length;i++){
+    var m=ice[i];
     html+='<button class="mbtn" id="mb-'+m.id+'" style="width:100%;margin-bottom:5px;padding:8px 6px 7px;border-color:#b0d0f0;background:#f0f7ff">'
       +'<span class="mn" style="color:#1a4a2e">'+m.label+'</span>'
       +'<span class="mp" style="color:#185fa5">'+m.price+'\u20ba</span>'
