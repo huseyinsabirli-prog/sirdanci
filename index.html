@@ -716,8 +716,8 @@ if(fbOK && db){
 // ── MENÜ ──
 function buildMenu(){
   var el=ge('mgrid');if(!el)return;
-  var ana=MENU.filter(function(m){return m.cat==='ana';});
-  var ice=MENU.filter(function(m){return m.cat==='icecek';});
+  var ana=MENU.filter(function(m){return m.cat==="ana"&&!m.hidden;});
+  var ice=MENU.filter(function(m){return m.cat==="icecek"&&!m.hidden;});
 
   var html='<div style="display:-webkit-flex;display:flex;gap:7px;width:100%;-webkit-align-items:flex-start;align-items:flex-start">';
 
@@ -1077,16 +1077,18 @@ function buildMenuYonetim(){
     +'</div>';
 
   // MEVCUT ÜRÜNLER — FİYAT GÜNCELLE
-  h+='<div class="lbl">Mevcut Ürünler — Fiyat Güncelle</div>';
+  h+='<div class="lbl">Mevcut Ürünler — Fiyat & Görünürlük</div>';
   for(var i=0;i<MENU.length;i++){
     var m=MENU[i];
+    var gizli=m.hidden===true;
     var catLabel=m.cat==='icecek'?'&#127849;':'&#127374;';
-    h+='<div style="display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #f0f0f0">'
+    h+='<div style="display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #f0f0f0;'+(gizli?'opacity:.5':'')+'">'
       +'<span style="font-size:13px;color:#aaa">'+catLabel+'</span>'
       +'<span style="font-size:15px;font-weight:600;-webkit-flex:1;flex:1">'+m.label+'</span>'
-      +'<input class="inp" id="mp-'+m.id+'" type="number" inputmode="decimal" value="'+m.price+'" style="width:80px;margin:0;padding:8px 10px;font-size:15px;font-weight:700;text-align:right">'
+      +'<input class="inp" id="mp-'+m.id+'" type="number" inputmode="decimal" value="'+m.price+'" style="width:70px;margin:0;padding:8px 8px;font-size:14px;font-weight:700;text-align:right">'
       +'<span style="font-size:13px;color:#888">₺</span>'
-      +'<button onclick="deleteMenuItem(\''+m.id+'\')" style="background:#ffeeee;color:#c0392b;border:1.5px solid #f0c0c0;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;-webkit-appearance:none">Sil</button>'
+      +'<button onclick="toggleMenuHide(\''+m.id+'\')" style="padding:6px 9px;border-radius:6px;border:1.5px solid '+(gizli?'#1a4a2e':'#ddd')+';background:'+(gizli?'#eef8f2':'#f8f8f8')+';color:'+(gizli?'#1a4a2e':'#888')+';font-size:11px;font-weight:700;cursor:pointer;-webkit-appearance:none;white-space:nowrap">'+(gizli?'&#9745; Göster':'&#9744; Gizle')+'</button>'
+      +'<button onclick="deleteMenuItem(\''+m.id+'\')" style="background:#ffeeee;color:#c0392b;border:1.5px solid #f0c0c0;border-radius:6px;padding:6px 9px;font-size:11px;font-weight:700;cursor:pointer;-webkit-appearance:none">Sil</button>'
       +'</div>';
   }
   h+='<button class="bigbtn" style="margin-top:14px" onclick="saveMenuPrices()">&#10003; Fiyatları Kaydet</button>';
@@ -1126,14 +1128,22 @@ function saveMenuToFirebase(cb){
   var menuData={};
   for(var i=0;i<MENU.length;i++){
     priceMap[MENU[i].id]=MENU[i].price;
-    menuData[MENU[i].id]={id:MENU[i].id,label:MENU[i].label,name:MENU[i].name,price:MENU[i].price,cat:MENU[i].cat};
+    menuData[MENU[i].id]={id:MENU[i].id,label:MENU[i].label,name:MENU[i].name,price:MENU[i].price,cat:MENU[i].cat,hidden:MENU[i].hidden||false};
   }
   if(fbOK&&db){
     db.ref('menuData').set(menuData).then(function(){setSyncBadge('ok');if(cb)cb();}).catch(function(){showToast('Kayıt hatası');});
   } else {if(cb)cb();}
 }
-window.addNewMenuItem=addNewMenuItem;
-window.deleteMenuItem=deleteMenuItem;
+function toggleMenuHide(id){
+  for(var i=0;i<MENU.length;i++){
+    if(MENU[i].id===id){MENU[i].hidden=!MENU[i].hidden;break;}
+  }
+  saveMenuToFirebase(function(){
+    buildMenu();buildMManuelGrid();
+    buildMenuYonetim();
+  });
+}
+window.toggleMenuHide=toggleMenuHide;
 
 function loadMenuPrices(){
   if(!fbOK||!db)return;
@@ -1153,8 +1163,8 @@ function loadMenuPrices(){
     for(var id in val){
       var item=val[id];
       if(staticIds[id]){
-        // Fiyatı güncelle
-        for(var i=0;i<MENU.length;i++){if(MENU[i].id===id){MENU[i].price=item.price;break;}}
+        // Fiyatı ve hidden'ı güncelle
+        for(var i=0;i<MENU.length;i++){if(MENU[i].id===id){MENU[i].price=item.price;MENU[i].hidden=item.hidden||false;break;}}
       } else {
         // Dinamik eklenen ürün — MENU'ye ekle (duplicate kontrolü)
         var exists=false;for(var i=0;i<MENU.length;i++){if(MENU[i].id===id){exists=true;break;}}
