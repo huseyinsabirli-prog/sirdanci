@@ -463,30 +463,6 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
   </div>
 
   <!-- CANLI İZLEME -->
-  <div class="pnl" id="pnl-canli">
-    <div class="card">
-      <div style="display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:6px;margin-bottom:10px">
-        <span class="live-dot"></span>
-        <span style="font-size:13px;font-weight:700;color:#1a4a2e">Canli Izleme</span>
-        <span style="font-size:11px;color:#aaa;margin-left:auto" id="live-time">--</span>
-      </div>
-      <div class="sgrid">
-        <div class="sc sg"><div class="sl">Bugunun Cirosu</div><div class="sv" id="lv-ciro">0 &#8378;</div></div>
-        <div class="sc sb"><div class="sl">Satis Adedi</div><div class="sv" id="lv-adet">0</div></div>
-        <div class="sc sa"><div class="sl">Nakit</div><div class="sv" id="lv-nak">0 &#8378;</div></div>
-        <div class="sc sb"><div class="sl">POS/Iban</div><div class="sv" id="lv-pos">0 &#8378;</div></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="lbl">Son Satislar (Canli)</div>
-      <div id="live-list"><div class="empty">Veri bekleniyor...</div></div>
-    </div>
-    <div class="card">
-      <div class="lbl">Bugun En Cok Satan</div>
-      <div id="live-urun"></div>
-    </div>
-  </div>
-
   <!-- MENÜ YÖNETİMİ -->
   <div class="pnl" id="pnl-menu">
     <div class="card" style="background:#fff3cd;border:2px solid #ffc107">
@@ -515,10 +491,6 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
   <button class="navbtn" id="nb-rap" onclick="goTab('rap')">
     <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
     Rapor
-  </button>
-  <button class="navbtn" id="nb-canli" onclick="goTab('canli')">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-    Canli
   </button>
   <button class="navbtn" id="nb-menu" onclick="goTab('menu')">
     <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -1084,55 +1056,113 @@ function buildMenuYonetim(){
     ge('menu-yonetim-content').innerHTML='<div class="empty">&#128274; Sadece garson girişiyle erişilebilir</div>';
     return;
   }
-  var h='<div class="lbl">Fiyat Güncelle</div>';
+  var h='';
+  // YENİ ÜRÜN EKLEME
+  h+='<div style="background:#eef8f2;border-radius:10px;padding:12px;margin-bottom:14px;border:2px solid #b2d9c0">'
+    +'<div class="lbl" style="color:#1a4a2e;margin-bottom:10px">+ Yeni Ürün Ekle</div>'
+    +'<div style="display:-webkit-flex;display:flex;gap:8px;margin-bottom:8px">'
+    +'<input class="inp" id="yeni-ad" placeholder="Ürün adı (örn: Bardak Su)" style="margin:0;-webkit-flex:1;flex:1;font-size:14px;padding:10px 11px">'
+    +'</div>'
+    +'<div style="display:-webkit-flex;display:flex;gap:8px;margin-bottom:8px">'
+    +'<div style="-webkit-flex:1;flex:1">'
+    +'<div style="font-size:10px;font-weight:700;color:#888;margin-bottom:4px">FİYAT (₺)</div>'
+    +'<input class="inp" id="yeni-fiyat" type="number" inputmode="decimal" placeholder="0" style="margin:0;font-size:15px;font-weight:700;padding:10px 11px">'
+    +'</div>'
+    +'<div style="-webkit-flex:1;flex:1">'
+    +'<div style="font-size:10px;font-weight:700;color:#888;margin-bottom:4px">KATEGORİ</div>'
+    +'<select class="inp" id="yeni-cat" style="margin:0;padding:10px 11px;font-size:14px">'
+    +'<option value="ana">Ana Menü</option>'
+    +'<option value="icecek">İçecek</option>'
+    +'</select>'
+    +'</div>'
+    +'</div>'
+    +'<button class="bigbtn" onclick="addNewMenuItem()" style="background:#1a7a4a">+ Menüye Ekle</button>'
+    +'</div>';
+
+  // MEVCUT ÜRÜNLER — FİYAT GÜNCELLE
+  h+='<div class="lbl">Mevcut Ürünler — Fiyat Güncelle</div>';
   for(var i=0;i<MENU.length;i++){
     var m=MENU[i];
-    h+='<div style="display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0f0">'
+    var catLabel=m.cat==='icecek'?'&#127849;':'&#127374;';
+    h+='<div style="display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #f0f0f0">'
+      +'<span style="font-size:13px;color:#aaa">'+catLabel+'</span>'
       +'<span style="font-size:15px;font-weight:600;-webkit-flex:1;flex:1">'+m.label+'</span>'
-      +'<input class="inp" id="mp-'+m.id+'" type="number" inputmode="decimal" value="'+m.price+'" style="width:90px;margin:0;padding:9px 10px;font-size:15px;font-weight:700;text-align:right">'
+      +'<input class="inp" id="mp-'+m.id+'" type="number" inputmode="decimal" value="'+m.price+'" style="width:80px;margin:0;padding:8px 10px;font-size:15px;font-weight:700;text-align:right">'
       +'<span style="font-size:13px;color:#888">₺</span>'
+      +'<button onclick="deleteMenuItem(\''+m.id+'\')" style="background:#ffeeee;color:#c0392b;border:1.5px solid #f0c0c0;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;-webkit-appearance:none">Sil</button>'
       +'</div>';
   }
   h+='<button class="bigbtn" style="margin-top:14px" onclick="saveMenuPrices()">&#10003; Fiyatları Kaydet</button>';
   ge('menu-yonetim-content').innerHTML=h;
 }
-function saveMenuPrices(){
-  var changed=[];
-  for(var i=0;i<MENU.length;i++){
-    var inp=ge('mp-'+MENU[i].id);
-    if(!inp)continue;
-    var yeni=parseFloat(inp.value);
-    if(yeni>0&&yeni!==MENU[i].price){
-      changed.push(MENU[i].label+': '+MENU[i].price+'₺ → '+yeni+'₺');
-      MENU[i].price=yeni;
-    }
-  }
-  if(!changed.length){showToast('Değişiklik yok');return;}
+function addNewMenuItem(){
+  var ad=ge('yeni-ad').value.trim();
+  var fiyat=parseFloat(ge('yeni-fiyat').value);
+  var cat=ge('yeni-cat').value;
+  if(!ad){showToast('Ürün adı girin');return;}
+  if(!fiyat||fiyat<=0){showToast('Geçerli fiyat girin');return;}
+  // Benzersiz id oluştur
+  var id='u'+Date.now();
+  var yeniUrun={id:id,label:ad,name:ad,price:fiyat,cat:cat};
+  MENU.push(yeniUrun);
   // Firebase'e kaydet
-  if(fbOK&&db){
-    var priceMap={};
-    for(var i=0;i<MENU.length;i++)priceMap[MENU[i].id]=MENU[i].price;
-    db.ref('menuFiyat').set(priceMap).then(function(){
-      buildMenu();buildMManuelGrid();
-      showToast('Fiyatlar güncellendi ✓');
-      buildMenuYonetim();
-    }).catch(function(){showToast('Kayıt hatası');});
-  } else {
+  saveMenuToFirebase(function(){
+    ge('yeni-ad').value='';
+    ge('yeni-fiyat').value='';
     buildMenu();buildMManuelGrid();
-    showToast('Fiyatlar güncellendi (yerel)');
     buildMenuYonetim();
-  }
+    showToast(ad+' menüye eklendi ✓');
+  });
 }
-window.saveMenuPrices=saveMenuPrices;
+function deleteMenuItem(id){
+  showConfirm('Bu ürün menüden silinecek.',function(){
+    MENU=MENU.filter(function(m){return m.id!==id;});
+    saveMenuToFirebase(function(){
+      buildMenu();buildMManuelGrid();
+      buildMenuYonetim();
+      showToast('Ürün silindi');
+    });
+  });
+}
+function saveMenuToFirebase(cb){
+  var priceMap={};
+  var menuData={};
+  for(var i=0;i<MENU.length;i++){
+    priceMap[MENU[i].id]=MENU[i].price;
+    menuData[MENU[i].id]={id:MENU[i].id,label:MENU[i].label,name:MENU[i].name,price:MENU[i].price,cat:MENU[i].cat};
+  }
+  if(fbOK&&db){
+    db.ref('menuData').set(menuData).then(function(){setSyncBadge('ok');if(cb)cb();}).catch(function(){showToast('Kayıt hatası');});
+  } else {if(cb)cb();}
+}
+window.addNewMenuItem=addNewMenuItem;
+window.deleteMenuItem=deleteMenuItem;
 
-// Firebase'den fiyatları yükle
 function loadMenuPrices(){
   if(!fbOK||!db)return;
-  db.ref('menuFiyat').once('value').then(function(snap){
+  db.ref('menuData').once('value').then(function(snap){
     var val=snap.val();
-    if(!val)return;
-    for(var i=0;i<MENU.length;i++){
-      if(val[MENU[i].id]!==undefined)MENU[i].price=val[MENU[i].id];
+    if(!val){
+      // Eski menuFiyat formatını dene
+      db.ref('menuFiyat').once('value').then(function(s2){
+        var v2=s2.val();if(!v2)return;
+        for(var i=0;i<MENU.length;i++){if(v2[MENU[i].id]!==undefined)MENU[i].price=v2[MENU[i].id];}
+        buildMenu();buildMManuelGrid();
+      });
+      return;
+    }
+    // menuData varsa: sabit menüyü güncelle + dinamik ürünleri ekle
+    var staticIds={};for(var i=0;i<MENU.length;i++)staticIds[MENU[i].id]=true;
+    for(var id in val){
+      var item=val[id];
+      if(staticIds[id]){
+        // Fiyatı güncelle
+        for(var i=0;i<MENU.length;i++){if(MENU[i].id===id){MENU[i].price=item.price;break;}}
+      } else {
+        // Dinamik eklenen ürün — MENU'ye ekle (duplicate kontrolü)
+        var exists=false;for(var i=0;i<MENU.length;i++){if(MENU[i].id===id){exists=true;break;}}
+        if(!exists)MENU.push({id:item.id,label:item.label,name:item.name,price:item.price,cat:item.cat||'ana'});
+      }
     }
     buildMenu();buildMManuelGrid();
   });
@@ -1462,13 +1492,12 @@ function updateHeader(){
 
 function shiftDay(d){var dt=new Date(viewDate);dt.setDate(dt.getDate()+d);var nk=dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());if(nk>todayKey())return;viewDate=nk;renderSatis();renderKasa();renderRapor();}
 function goTab(t){
-  var tabs=['adi','sat','kas','rap','canli','menu'];
+  var tabs=['adi','sat','kas','rap','menu'];
   for(var i=0;i<tabs.length;i++){
     ge('nb-'+tabs[i]).className='navbtn'+(tabs[i]===t?' on':'');
     ge('pnl-'+tabs[i]).className='pnl'+(tabs[i]===t?' show':'');
   }
   renderSatis();renderKasa();renderRapor();
-  if(t==='canli') startLiveWatch();
   if(t==='menu') buildMenuYonetim();
 }
 function showToast(msg){var el=ge('toast');el.textContent=msg;el.className='show';clearTimeout(el._t);el._t=setTimeout(function(){el.className='';},2200);}
