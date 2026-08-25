@@ -195,7 +195,8 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <div class="lbl" style="margin-top:10px">Odeme Sekli</div>
       <div class="prow">
         <button class="pb on" id="pb-nak" onclick="setPay('nakit')">&#128181; Nakit</button>
-        <button class="pb" id="pb-pos" onclick="setPay('pos')">&#128179; POS / Iban</button>
+        <button class="pb" id="pb-pos" onclick="setPay('pos')">&#128179; POS</button>
+        <button class="pb" id="pb-iban" onclick="setPay('iban')">&#128196; İban</button>
         <button class="pb" id="pb-karma" onclick="setPay('karma')">&#9654; Karma</button>
       </div>
       <div id="nakit-blok">
@@ -300,7 +301,8 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <div class="lbl">Ödeme Şekli</div>
       <div class="prow" style="margin-bottom:10px">
         <button class="pb on" id="m-pb-nak" onclick="mSetPay('nakit')">&#128181; Nakit</button>
-        <button class="pb" id="m-pb-pos" onclick="mSetPay('pos')">&#128179; POS / Iban</button>
+        <button class="pb" id="m-pb-pos" onclick="mSetPay('pos')">&#128179; POS</button>
+        <button class="pb" id="m-pb-iban" onclick="mSetPay('iban')">&#128196; İban</button>
         <button class="pb" id="m-pb-karma" onclick="mSetPay('karma')">&#9654; Karma</button>
       </div>
       <div id="m-karma-blok" style="display:none;background:#f0f7ff;border:2px solid #b0d0f0;border-radius:9px;padding:10px 12px;margin-bottom:8px">
@@ -818,6 +820,7 @@ function setPay(t){
   payType=t;
   ge('pb-nak').className='pb'+(t==='nakit'?' on':'');
   ge('pb-pos').className='pb'+(t==='pos'?' on':'');
+  ge('pb-iban').className='pb'+(t==='iban'?' on':'');
   ge('pb-karma').className='pb'+(t==='karma'?' on':'');
   ge('nakit-blok').style.display=t==='nakit'?'block':'none';
   ge('karma-blok').style.display=t==='karma'?'block':'none';
@@ -893,7 +896,7 @@ function renderSatis(){
     }
     if(!arr||!arr.length){el.innerHTML='<div class="empty">Bu vardiya i\xe7in sat\u0131\u015f kayd\u0131 yok</div>';return;}
     var rev=arr.slice().reverse(),html='',ids=[];
-    for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=(s.ust!==null&&s.ust!==undefined&&!isNaN(s.ust))?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';var payBadge=s.pay==='karma'?'<span class="badge" style="background:#e8f0fe;color:#185fa5">Karma</span>':('<span class="badge '+(s.pay==='nakit'?'bn':'bp')+'">'+(s.pay==='nakit'?'Nakit':'POS')+'</span>');ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta">'+payBadge+'<span class="stime">'+s.time+'</span><button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
+    for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=(s.ust!==null&&s.ust!==undefined&&!isNaN(s.ust))?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';var payBadge=s.pay==='karma'?'<span class="badge" style="background:#e8f0fe;color:#185fa5">Karma</span>':s.pay==='iban'?'<span class="badge" style="background:#f0e8fe;color:#6a1a9a">0130ban</span>':s.pay==='nakit'?'<span class="badge bn">Nakit</span>':'<span class="badge bp">POS</span>';ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta">'+payBadge+'<span class="stime">'+s.time+'</span><button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
     el.innerHTML=html;
     for(var i=0;i<ids.length;i++){(function(sid){var b=ge('ds-'+sid);if(!b)return;b.addEventListener('touchend',function(e){e.preventDefault();delSale(sid);},false);b.addEventListener('click',function(e){e.preventDefault();delSale(sid);},false);})(ids[i]);}
   });
@@ -932,7 +935,7 @@ function normalizeName(name){
   return name;
 }
 function calcNakPos(sales){
-  var nak=0,pos=0;
+  var nak=0,pos=0,iban=0;
   for(var i=0;i<sales.length;i++){
     var s=sales[i];
     if(s.pay==='karma'){
@@ -940,11 +943,16 @@ function calcNakPos(sales){
       pos+=(s.karmaPos||0);
     } else if(s.pay==='nakit'){
       nak+=s.total;
-    } else {
-      pos+=s.total;
+    } else if(s.pay==='iban'){
+      iban+=s.total;
+    } else if(s.pay==='pos'){
+      // Eski kayıtlar: açıklamada iban/İban geçiyorsa iban olarak say
+      var note=(s.note||'').toLowerCase();
+      if(note.indexOf('iban')>=0){iban+=s.total;}
+      else{pos+=s.total;}
     }
   }
-  return {nak:nak,pos:pos};
+  return {nak:nak,pos:pos,iban:iban};
 }
 function addGelir(){var ac=ge('gel-ac').value.trim(),tu=parseFloat(ge('gel-tu').value);if(!ac||!tu||tu<=0)return;getGelirs(viewDate,function(arr){arr=arr||[];arr.push({id:Date.now(),aciklama:ac,tutar:tu});saveGelirs(viewDate,arr,function(){ge('gel-ac').value='';ge('gel-tu').value='';renderKasa();showToast('Ek gelir eklendi \u2713');});});}
 function addGider(){var ac=ge('gid-ac').value.trim(),tu=parseFloat(ge('gid-tu').value);if(!ac||!tu||tu<=0)return;getGiders(viewDate,function(arr){arr=arr||[];arr.push({id:Date.now(),aciklama:ac,tutar:tu});saveGiders(viewDate,arr,function(){ge('gid-ac').value='';ge('gid-tu').value='';renderKasa();showToast('Gider eklendi \u2713');});});}
@@ -1291,7 +1299,9 @@ function renderRapor(){
     var sa=[];for(var k in sm)sa.push([+k,sm[k]]);sa.sort(function(a,b){return a[0]-b[0];});var maxS=1;for(var i=0;i<sa.length;i++)if(sa[i][1]>maxS)maxS=sa[i][1];
     h='';for(var i=0;i<sa.length;i++){var p=Math.round(sa[i][1]/maxS*100);h+='<div class="rbar"><div class="rtop"><span class="rname">'+sa[i][0]+':00\u201359</span><span class="rval">'+tl(sa[i][1])+'</span></div><div class="rbg"><div class="rfill" style="width:'+p+'%;background:#185fa5"></div></div></div>';}
     ge('rap-saat').innerHTML=h||'<div class="empty">Veri yok</div>';
-    var np=calcNakPos(sales),nak=np.nak,pos=np.pos;
+    var np=calcNakPos(sales),nak=np.nak,pos=np.pos,iban=np.iban;
+    var tot=nak+pos+iban||1;
+    ge('rap-ode').innerHTML='<div class="rbar"><div class="rtop"><span class="rname">Nakit</span><span class="rval">'+tl(nak)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(nak/tot*100)+'%;background:#1a4a2e"></div></div></div><div class="rbar"><div class="rtop"><span class="rname">POS</span><span class="rval">'+tl(pos)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(pos/tot*100)+'%;background:#185fa5"></div></div></div><div class="rbar"><div class="rtop"><span class="rname">0130ban</span><span class="rval">'+tl(iban)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(iban/tot*100)+'%;background:#6a1a9a"></div></div></div>';
     var tot=nak+pos||1;
     ge('rap-ode').innerHTML='<div class="rbar"><div class="rtop"><span class="rname">Nakit</span><span class="rval">'+tl(nak)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(nak/tot*100)+'%;background:#1a4a2e"></div></div></div><div class="rbar"><div class="rtop"><span class="rname">POS/\u0130ban</span><span class="rval">'+tl(pos)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(pos/tot*100)+'%;background:#185fa5"></div></div></div>';
     var days=[],maxG=1;
@@ -1342,9 +1352,11 @@ function renderRaporDays(days){
               for(var j=0;j<gunler.length;j++){
                 var g=gunler[j];
                 var p2=maxG>0?Math.round(g.ciro/maxG*100):0;
+                var gunKisa=['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
+                var gunAdi=gunKisa[new Date(g.dk+'T12:00:00').getDay()];
                 h2+='<div style="margin-bottom:7px">'
                   +'<div style="display:-webkit-flex;display:flex;gap:4px;-webkit-align-items:center;align-items:center;margin-bottom:3px">'
-                  +'<span style="font-size:12px;font-weight:600;-webkit-flex:1;flex:1">'+fmtD(g.dk)+(g.dk===todayKey()?' <small style="color:#1a4a2e;font-size:10px">(bugün)</small>':'')+'</span>'
+                  +'<span style="font-size:12px;font-weight:600;-webkit-flex:1;flex:1">'+fmtD(g.dk)+' <span style="font-size:10px;font-weight:800;color:#fff;background:#888;border-radius:3px;padding:1px 4px">'+gunAdi+'</span>'+(g.dk===todayKey()?' <small style="color:#1a4a2e;font-size:10px">(bugün)</small>':'')+'</span>'
                   +'<span style="font-size:12px;font-weight:700;min-width:62px;text-align:right;color:#b87a10">'+tl(g.ciro)+'</span>'
                   +'<span style="font-size:12px;font-weight:700;min-width:66px;text-align:right;color:#185fa5">'+tl(g.netKaz)+'</span>'
                   +'<span style="font-size:12px;font-weight:700;min-width:64px;text-align:right;color:#6a1a4a">'+tl(g.baba)+'</span>'
@@ -1599,21 +1611,58 @@ function closeManuel(){
 }
 function buildMManuelGrid(){
   var el=ge('m-mgrid');if(!el)return;
-  var ana=MENU.filter(function(m){return m.cat==='ana';});
-  var ice=MENU.filter(function(m){return m.cat==='icecek';});
-  var html='<div style="display:-webkit-flex;display:flex;gap:8px;width:100%">';
+  var ana=MENU.filter(function(m){return m.cat==='ana'&&!m.hidden;});
+  var ice=MENU.filter(function(m){return m.cat==='icecek'&&!m.hidden;});
+
+  var html='<div style="display:-webkit-flex;display:flex;gap:7px;width:100%;-webkit-align-items:flex-start;align-items:flex-start">';
+
+  // Sol — Ana Menü (2 kolonlu)
   html+='<div style="-webkit-flex:1;flex:1">';
-  html+='<div style="font-size:10px;font-weight:700;color:#1a4a2e;margin-bottom:5px">Ana Menü</div>';
-  for(var i=0;i<ana.length;i++){var m=ana[i];html+='<button class="mbtn" id="mm-'+m.id+'" style="width:100%;margin-bottom:5px"><span class="mn">'+m.label+'</span><span class="mp">'+m.price+'\u20ba</span></button>';}
-  html+='</div>';
-  html+='<div style="width:90px;-webkit-flex-shrink:0;flex-shrink:0">';
-  html+='<div style="font-size:10px;font-weight:700;color:#185fa5;margin-bottom:5px">İçecek</div>';
-  for(var i=0;i<ice.length;i++){var m=ice[i];html+='<button class="mbtn" id="mm-'+m.id+'" style="width:100%;margin-bottom:5px;border-color:#b0d0f0;background:#f0f7ff"><span class="mn" style="color:#185fa5">'+m.label+'</span><span class="mp" style="color:#185fa5">'+m.price+'\u20ba</span></button>';}
+  html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#1a4a2e;margin-bottom:5px">&#127374; Ana Menü</div>';
+  html+='<div style="display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:5px">';
+  for(var i=0;i<ana.length;i++){
+    var m=ana[i];
+    html+='<button class="mbtn" id="mm-'+m.id+'" style="width:calc(50% - 3px);padding:8px 7px 7px">'
+      +'<span class="mn">'+m.label+'</span>'
+      +'<span class="mp">'+m.price+'\u20ba</span>'
+      +'</button>';
+  }
   html+='</div></div>';
+
+  // Sağ — İçecekler
+  html+='<div style="width:82px;-webkit-flex-shrink:0;flex-shrink:0">';
+  html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#185fa5;margin-bottom:5px">&#127849; İçecek</div>';
+  for(var i=0;i<ice.length;i++){
+    var m=ice[i];
+    html+='<button class="mbtn" id="mm-'+m.id+'" style="width:100%;margin-bottom:5px;padding:8px 6px 7px;border-color:#b0d0f0;background:#f0f7ff">'
+      +'<span class="mn" style="color:#1a4a2e">'+m.label+'</span>'
+      +'<span class="mp" style="color:#185fa5">'+m.price+'\u20ba</span>'
+      +'</button>';
+  }
+  html+='</div></div>';
+
   el.innerHTML=html;
-  for(var i=0;i<MENU.length;i++){(function(mid){var btn=ge('mm-'+mid);if(!btn)return;btn.addEventListener('touchend',function(e){e.preventDefault();mAddItem(mid);},false);btn.addEventListener('click',function(e){e.preventDefault();mAddItem(mid);},false);})(MENU[i].id);}
+
+  for(var i=0;i<MENU.length;i++){
+    (function(mid){
+      var btn=ge('mm-'+mid);if(!btn)return;
+      btn.addEventListener('touchend',function(e){
+        e.preventDefault();e.stopPropagation();
+        btn.classList.add('tap');
+        setTimeout(function(){btn.classList.remove('tap');},400);
+        mAddItem(mid);
+      },false);
+      btn.addEventListener('click',function(e){
+        e.preventDefault();
+        mAddItem(mid);
+      },false);
+    })(MENU[i].id);
+  }
 }
-function mAddItem(id){mBasket[id]=(mBasket[id]||0)+1;renderMBasket();}
+function mAddItem(id){
+  mBasket[id]=(mBasket[id]||0)+1;
+  renderMBasket();
+}
 function mChgQ(id,d){mBasket[id]=(mBasket[id]||0)+d;if(mBasket[id]<=0)delete mBasket[id];renderMBasket();}
 function getMRevize(){var v=parseFloat(ge('m-revize-tutar').value);return(!isNaN(v)&&v>0)?v:0;}
 function getMFinalTotal(){var rev=getMRevize();return rev>0?rev:getMTotal();}
@@ -1642,6 +1691,7 @@ function mSetPay(t){
   mPayType=t;
   ge('m-pb-nak').className='pb'+(t==='nakit'?' on':'');
   ge('m-pb-pos').className='pb'+(t==='pos'?' on':'');
+  ge('m-pb-iban').className='pb'+(t==='iban'?' on':'');
   ge('m-pb-karma').className='pb'+(t==='karma'?' on':'');
   ge('m-karma-blok').style.display=t==='karma'?'block':'none';
   if(t==='karma'){if(ge('m-karma-nakit'))ge('m-karma-nakit').value='';if(ge('m-karma-pos'))ge('m-karma-pos').value='';if(ge('m-karma-durum'))ge('m-karma-durum').textContent='';}
