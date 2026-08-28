@@ -1112,7 +1112,11 @@ function fotoOku(input){
     var reader=new FileReader();
     reader.onload=function(e){
       var b64=e.target.result.split(',')[1];
-      var mtype=file.type||'image/jpeg';
+      var mtype='image/jpeg'; // Her zaman jpeg olarak gönder
+      // Eğer png ise png gönder
+      if(file.type==='image/png')mtype='image/png';
+      if(file.type==='image/webp')mtype='image/webp';
+      if(file.type==='image/gif')mtype='image/gif';
       var menuListesi=MENU.filter(function(m){return !m.hidden;}).map(function(m){return m.name+' ('+m.price+' TL)';}).join('\n');
       var prompt='Bu bir restoran adisyon kağıdının fotoğrafı. Aşağıdaki menüdeki ürünleri dikkate alarak fotoğraftaki kalemleri oku:\n\n'+menuListesi+'\n\nSadece JSON formatında döndür, başka hiçbir şey yazma:\n{"items":[{"name":"ÜRÜN ADI","qty":ADET,"price":FIYAT}]}\n\nEğer ürün menüde tam yoksa en yakın menü ürününü kullan. Fiyatı menüden al.';
       fetch('https://api.anthropic.com/v1/messages',{
@@ -1124,7 +1128,7 @@ function fotoOku(input){
           'anthropic-dangerous-direct-browser-access':'true'
         },
         body:JSON.stringify({
-          model:'claude-haiku-4-5-20251001',
+          model:'claude-sonnet-4-6',
           max_tokens:1024,
           messages:[{
             role:'user',
@@ -1136,7 +1140,10 @@ function fotoOku(input){
         })
       })
       .then(function(r){
-        if(!r.ok){return r.json().then(function(e){throw new Error(JSON.stringify(e));});}
+        if(!r.ok){return r.json().then(function(e){
+          console.error('API Hata:',JSON.stringify(e));
+          throw new Error(e.error&&e.error.message?e.error.message:JSON.stringify(e));
+        });}
         return r.json();
       })
       .then(function(data){
