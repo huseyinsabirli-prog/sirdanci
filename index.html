@@ -1086,8 +1086,9 @@ var fotoKalemler=[];
 
 function loadAnthropicKey(){
   if(!fbOK||!db)return;
+  // Önce openrouter_key'i dene
   db.ref('config/openrouter_key').once('value').then(function(snap){
-    if(snap.val())ANTHROPIC_KEY=snap.val();
+    if(snap.val()){ANTHROPIC_KEY=snap.val();console.log('OpenRouter key yüklendi');}
   });
 }
 
