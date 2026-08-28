@@ -267,6 +267,16 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
 
   <!-- SİLME ONAY MODALI -->
 <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:24px 20px;width:88%;max-width:320px;text-align:center">
+    <div style="font-size:32px;margin-bottom:10px">🗑️</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:8px">Emin misiniz?</div>
+    <div style="font-size:13px;color:#888;margin-bottom:20px" id="confirm-msg">Bu kayıt silinecek, geri alınamaz.</div>
+    <div style="display:-webkit-flex;display:flex;gap:10px">
+      <button onclick="confirmNo()" style="flex:1;padding:12px;border:2px solid #ddd;border-radius:10px;background:#f8f8f8;font-size:14px;font-weight:700;cursor:pointer;-webkit-appearance:none">Vazgeç</button>
+      <button onclick="confirmYes()" style="flex:1;padding:12px;border:none;border-radius:10px;background:#c0392b;color:#fff;font-size:14px;font-weight:700;cursor:pointer;-webkit-appearance:none">Evet, Sil</button>
+    </div>
+  </div>
+</div>
 
 <!-- FOTO MODAL -->
 <div id="foto-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9500;-webkit-align-items:flex-end;align-items:flex-end;-webkit-justify-content:center;justify-content:center">
@@ -287,17 +297,6 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
     <div id="foto-hata" style="display:none;color:#c0392b;font-size:14px;padding:10px 0"></div>
   </div>
 </div>
-  <div style="background:#fff;border-radius:16px;padding:24px 20px;width:88%;max-width:320px;text-align:center">
-    <div style="font-size:32px;margin-bottom:10px">🗑️</div>
-    <div style="font-size:16px;font-weight:800;margin-bottom:8px">Emin misiniz?</div>
-    <div style="font-size:13px;color:#888;margin-bottom:20px" id="confirm-msg">Bu kayıt silinecek, geri alınamaz.</div>
-    <div style="display:-webkit-flex;display:flex;gap:10px">
-      <button onclick="confirmNo()" style="flex:1;padding:12px;border:2px solid #ddd;border-radius:10px;background:#f8f8f8;font-size:14px;font-weight:700;cursor:pointer;-webkit-appearance:none">Vazgeç</button>
-      <button onclick="confirmYes()" style="flex:1;padding:12px;border:none;border-radius:10px;background:#c0392b;color:#fff;font-size:14px;font-weight:700;cursor:pointer;-webkit-appearance:none">Evet, Sil</button>
-    </div>
-  </div>
-</div>
-
 
   <div id="manuel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:8000;-webkit-align-items:flex-end;align-items:flex-end;display:none;-webkit-justify-content:center;justify-content:center">
     <div style="background:#fff;border-radius:18px 18px 0 0;padding:20px 16px 32px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto">
