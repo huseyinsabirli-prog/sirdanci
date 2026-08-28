@@ -1086,7 +1086,7 @@ var fotoKalemler=[];
 
 function loadAnthropicKey(){
   if(!fbOK||!db)return;
-  db.ref('config/anthropic_key').once('value').then(function(snap){
+  db.ref('config/openrouter_key').once('value').then(function(snap){
     if(snap.val())ANTHROPIC_KEY=snap.val();
   });
 }
@@ -1119,21 +1119,21 @@ function fotoOku(input){
       if(file.type==='image/gif')mtype='image/gif';
       var menuListesi=MENU.filter(function(m){return !m.hidden;}).map(function(m){return m.name+' ('+m.price+' TL)';}).join('\n');
       var prompt='Bu bir restoran adisyon kağıdının fotoğrafı. Aşağıdaki menüdeki ürünleri dikkate alarak fotoğraftaki kalemleri oku:\n\n'+menuListesi+'\n\nSadece JSON formatında döndür, başka hiçbir şey yazma:\n{"items":[{"name":"ÜRÜN ADI","qty":ADET,"price":FIYAT}]}\n\nEğer ürün menüde tam yoksa en yakın menü ürününü kullan. Fiyatı menüden al.';
-      fetch('https://api.anthropic.com/v1/messages',{
+      fetch('https://openrouter.ai/api/v1/chat/completions',{
         method:'POST',
         headers:{
           'Content-Type':'application/json',
-          'x-api-key':ANTHROPIC_KEY,
-          'anthropic-version':'2023-06-01',
-          'anthropic-dangerous-direct-browser-access':'true'
+          'Authorization':'Bearer '+ANTHROPIC_KEY,
+          'HTTP-Referer':'https://huseyinsabirli-prog.github.io/sirdanci/',
+          'X-Title':'Sirdanci Adisyon'
         },
         body:JSON.stringify({
-          model:'claude-sonnet-4-6',
+          model:'google/gemini-flash-1.5',
           max_tokens:1024,
           messages:[{
             role:'user',
             content:[
-              {type:'image',source:{type:'base64',media_type:mtype,data:b64}},
+              {type:'image_url',image_url:{url:'data:'+mtype+';base64,'+b64}},
               {type:'text',text:prompt}
             ]
           }]
@@ -1149,13 +1149,13 @@ function fotoOku(input){
       .then(function(data){
         ge('foto-yukluyor').style.display='none';
         if(data.error){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Hata: '+data.error.message;return;}
-        var text=data.content[0].text.trim();
+        var text=data.choices[0].message.content.trim();
         var match=text.match(/\{[\s\S]*\}/);
-        if(!match){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Okunamadı. Tekrar deneyin.';return;}
+        if(!match){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Okunamadı: '+text.substring(0,100);return;}
         fotoKalemler=JSON.parse(match[0]).items||[];
         renderFotoItems();
       })
-      .catch(function(e){ge('foto-yukluyor').style.display='none';ge('foto-hata').style.display='block';ge('foto-hata').textContent='Bağlantı hatası: '+e.message;});
+      .catch(function(e){ge('foto-yukluyor').style.display='none';ge('foto-hata').style.display='block';ge('foto-hata').textContent='Hata: '+e.message;});
     };
     reader.readAsDataURL(file);
   }
@@ -1163,8 +1163,7 @@ function fotoOku(input){
   if(ANTHROPIC_KEY){console.log('Key hazır, devam ediyor');devam();}
   else if(fbOK&&db){
     console.log('Key yok, Firebase den yükleniyor');
-    db.ref('config/anthropic_key').once('value').then(function(snap){
-      console.log('Firebase snap:', snap.val()?'KEY ALINDI':'BOŞ');
+    db.ref('config/openrouter_key').once('value').then(function(snap){
       if(snap.val())ANTHROPIC_KEY=snap.val();
       devam();
     }).catch(function(err){console.log('Firebase hata:',err);devam();});
