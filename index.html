@@ -1100,30 +1100,48 @@ function fotoOku(input){
   ge('foto-yukluyor').style.display='block';
   ge('foto-sonuc').style.display='none';
   ge('foto-hata').style.display='none';
-  var reader=new FileReader();
-  reader.onload=function(e){
-    var b64=e.target.result.split(',')[1];
-    var mtype=file.type||'image/jpeg';
-    var menuListesi=MENU.filter(function(m){return !m.hidden;}).map(function(m){return m.name+' ('+m.price+' TL)';}).join('\n');
-    var prompt='Bu bir restoran adisyon kağıdının fotoğrafı. Aşağıdaki menüdeki ürünleri dikkate alarak fotoğraftaki kalemleri oku:\n\n'+menuListesi+'\n\nSadece JSON formatında döndür, başka hiçbir şey yazma:\n{"items":[{"name":"ÜRÜN ADI","qty":ADET,"price":FIYAT}]}\n\nEğer ürün menüde tam yoksa en yakın menü ürününü kullan. Fiyatı menüden al.';
-    fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mtype,data:b64}},{type:'text',text:prompt}]}]})
-    })
-    .then(function(r){return r.json();})
-    .then(function(data){
+
+  // Key yoksa Firebase'den taze çek, sonra devam et
+  function devam(){
+    if(!ANTHROPIC_KEY){
       ge('foto-yukluyor').style.display='none';
-      if(data.error){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Hata: '+data.error.message;return;}
-      var text=data.content[0].text.trim();
-      var match=text.match(/\{[\s\S]*\}/);
-      if(!match){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Okunamadı. Tekrar deneyin.';return;}
-      fotoKalemler=JSON.parse(match[0]).items||[];
-      renderFotoItems();
-    })
-    .catch(function(e){ge('foto-yukluyor').style.display='none';ge('foto-hata').style.display='block';ge('foto-hata').textContent='Bağlantı hatası: '+e.message;});
-  };
-  reader.readAsDataURL(file);
+      ge('foto-hata').style.display='block';
+      ge('foto-hata').textContent='API key yüklenemedi. Giriş yaptığınızdan emin olun.';
+      return;
+    }
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var b64=e.target.result.split(',')[1];
+      var mtype=file.type||'image/jpeg';
+      var menuListesi=MENU.filter(function(m){return !m.hidden;}).map(function(m){return m.name+' ('+m.price+' TL)';}).join('\n');
+      var prompt='Bu bir restoran adisyon kağıdının fotoğrafı. Aşağıdaki menüdeki ürünleri dikkate alarak fotoğraftaki kalemleri oku:\n\n'+menuListesi+'\n\nSadece JSON formatında döndür, başka hiçbir şey yazma:\n{"items":[{"name":"ÜRÜN ADI","qty":ADET,"price":FIYAT}]}\n\nEğer ürün menüde tam yoksa en yakın menü ürününü kullan. Fiyatı menüden al.';
+      fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mtype,data:b64}},{type:'text',text:prompt}]}]})
+      })
+      .then(function(r){return r.json();})
+      .then(function(data){
+        ge('foto-yukluyor').style.display='none';
+        if(data.error){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Hata: '+data.error.message;return;}
+        var text=data.content[0].text.trim();
+        var match=text.match(/\{[\s\S]*\}/);
+        if(!match){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Okunamadı. Tekrar deneyin.';return;}
+        fotoKalemler=JSON.parse(match[0]).items||[];
+        renderFotoItems();
+      })
+      .catch(function(e){ge('foto-yukluyor').style.display='none';ge('foto-hata').style.display='block';ge('foto-hata').textContent='Bağlantı hatası: '+e.message;});
+    };
+    reader.readAsDataURL(file);
+  }
+
+  if(ANTHROPIC_KEY){devam();}
+  else if(fbOK&&db){
+    db.ref('config/anthropic_key').once('value').then(function(snap){
+      if(snap.val())ANTHROPIC_KEY=snap.val();
+      devam();
+    }).catch(function(){devam();});
+  } else {devam();}
 }
 
 function renderFotoItems(){
