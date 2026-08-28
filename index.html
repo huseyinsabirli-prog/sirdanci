@@ -170,9 +170,15 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
 
   <!-- ADİSYON -->
   <div class="pnl show" id="pnl-adi">
-    <div class="card">
-      <div class="lbl">Urun Sec</div>
-      <div id="mgrid"></div>
+    <div class="card" style="padding:10px 14px">
+      <div style="display:-webkit-flex;display:flex;gap:8px;-webkit-align-items:center;align-items:center">
+        <div class="lbl" style="margin:0;-webkit-flex:1;flex:1">Ürün Seç</div>
+        <label id="foto-btn" style="display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;gap:5px;padding:8px 12px;background:#185fa5;color:#fff;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer">
+          📷 Foto Oku
+          <input type="file" accept="image/*" capture="environment" id="foto-input" style="display:none" onchange="fotoOku(this)">
+        </label>
+      </div>
+      <div id="mgrid" style="margin-top:10px"></div>
     </div>
     <div class="card">
       <div class="lbl">Sepet</div>
@@ -195,8 +201,7 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <div class="lbl" style="margin-top:10px">Odeme Sekli</div>
       <div class="prow">
         <button class="pb on" id="pb-nak" onclick="setPay('nakit')">&#128181; Nakit</button>
-        <button class="pb" id="pb-pos" onclick="setPay('pos')">&#128179; POS</button>
-        <button class="pb" id="pb-iban" onclick="setPay('iban')">&#128196; İban</button>
+        <button class="pb" id="pb-pos" onclick="setPay('pos')">&#128179; POS / İban</button>
         <button class="pb" id="pb-karma" onclick="setPay('karma')">&#9654; Karma</button>
       </div>
       <div id="nakit-blok">
@@ -262,6 +267,26 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
 
   <!-- SİLME ONAY MODALI -->
 <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center">
+
+<!-- FOTO MODAL -->
+<div id="foto-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9500;-webkit-align-items:flex-end;align-items:flex-end;-webkit-justify-content:center;justify-content:center">
+  <div style="background:#fff;border-radius:18px 18px 0 0;padding:20px 16px 32px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto">
+    <div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;margin-bottom:14px">
+      <div style="font-size:17px;font-weight:800">📷 Fotoğraftan Adisyon</div>
+      <button onclick="closeFotoModal()" style="background:#f0f0f0;border:none;border-radius:8px;padding:6px 12px;font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div id="foto-yukluyor" style="display:none;text-align:center;padding:30px 0">
+      <div style="font-size:32px;margin-bottom:10px">🤖</div>
+      <div style="font-size:15px;color:#555">Fotoğraf okunuyor...</div>
+    </div>
+    <div id="foto-sonuc" style="display:none">
+      <div style="font-size:13px;color:#888;margin-bottom:10px">Okunan kalemleri düzenleyip onaylayın:</div>
+      <div id="foto-items"></div>
+      <button class="bigbtn" onclick="fotoOnay()" style="margin-top:12px">✓ Sepete Ekle</button>
+    </div>
+    <div id="foto-hata" style="display:none;color:#c0392b;font-size:14px;padding:10px 0"></div>
+  </div>
+</div>
   <div style="background:#fff;border-radius:16px;padding:24px 20px;width:88%;max-width:320px;text-align:center">
     <div style="font-size:32px;margin-bottom:10px">🗑️</div>
     <div style="font-size:16px;font-weight:800;margin-bottom:8px">Emin misiniz?</div>
@@ -301,8 +326,7 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <div class="lbl">Ödeme Şekli</div>
       <div class="prow" style="margin-bottom:10px">
         <button class="pb on" id="m-pb-nak" onclick="mSetPay('nakit')">&#128181; Nakit</button>
-        <button class="pb" id="m-pb-pos" onclick="mSetPay('pos')">&#128179; POS</button>
-        <button class="pb" id="m-pb-iban" onclick="mSetPay('iban')">&#128196; İban</button>
+        <button class="pb" id="m-pb-pos" onclick="mSetPay('pos')">&#128179; POS / İban</button>
         <button class="pb" id="m-pb-karma" onclick="mSetPay('karma')">&#9654; Karma</button>
       </div>
       <div id="m-karma-blok" style="display:none;background:#f0f7ff;border:2px solid #b0d0f0;border-radius:9px;padding:10px 12px;margin-bottom:8px">
@@ -584,6 +608,7 @@ function showApp(){
   buildMenu();renderBasket();setupBtns();updateHeader();renderSatis();renderKasa();renderRapor();
   updateManuelBtn();
   loadMenuPrices();
+  loadAnthropicKey();
   // Ortak girince direkt Satışlar sekmesine yönlendir
   if(!isGarson){ setTimeout(function(){goTab('sat');},100); }
   if(fbOK && db){
@@ -820,7 +845,6 @@ function setPay(t){
   payType=t;
   ge('pb-nak').className='pb'+(t==='nakit'?' on':'');
   ge('pb-pos').className='pb'+(t==='pos'?' on':'');
-  ge('pb-iban').className='pb'+(t==='iban'?' on':'');
   ge('pb-karma').className='pb'+(t==='karma'?' on':'');
   ge('nakit-blok').style.display=t==='nakit'?'block':'none';
   ge('karma-blok').style.display=t==='karma'?'block':'none';
@@ -1056,6 +1080,94 @@ function renderRaporWithRange(from,to){
 window.setPeriod=setPeriod;
 
 // Menü Yönetimi
+// ── FOTO OKUMA ──────────────────────────────
+var ANTHROPIC_KEY='';
+var fotoKalemler=[];
+
+function loadAnthropicKey(){
+  if(!fbOK||!db)return;
+  db.ref('config/anthropic_key').once('value').then(function(snap){
+    if(snap.val())ANTHROPIC_KEY=snap.val();
+  });
+}
+
+function fotoOku(input){
+  if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  input.value='';
+  ge('foto-modal').style.display='-webkit-flex';
+  ge('foto-modal').style.display='flex';
+  ge('foto-yukluyor').style.display='block';
+  ge('foto-sonuc').style.display='none';
+  ge('foto-hata').style.display='none';
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var b64=e.target.result.split(',')[1];
+    var mtype=file.type||'image/jpeg';
+    var menuListesi=MENU.filter(function(m){return !m.hidden;}).map(function(m){return m.name+' ('+m.price+' TL)';}).join('\n');
+    var prompt='Bu bir restoran adisyon kağıdının fotoğrafı. Aşağıdaki menüdeki ürünleri dikkate alarak fotoğraftaki kalemleri oku:\n\n'+menuListesi+'\n\nSadece JSON formatında döndür, başka hiçbir şey yazma:\n{"items":[{"name":"ÜRÜN ADI","qty":ADET,"price":FIYAT}]}\n\nEğer ürün menüde tam yoksa en yakın menü ürününü kullan. Fiyatı menüden al.';
+    fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:mtype,data:b64}},{type:'text',text:prompt}]}]})
+    })
+    .then(function(r){return r.json();})
+    .then(function(data){
+      ge('foto-yukluyor').style.display='none';
+      if(data.error){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Hata: '+data.error.message;return;}
+      var text=data.content[0].text.trim();
+      var match=text.match(/\{[\s\S]*\}/);
+      if(!match){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Okunamadı. Tekrar deneyin.';return;}
+      fotoKalemler=JSON.parse(match[0]).items||[];
+      renderFotoItems();
+    })
+    .catch(function(e){ge('foto-yukluyor').style.display='none';ge('foto-hata').style.display='block';ge('foto-hata').textContent='Bağlantı hatası: '+e.message;});
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderFotoItems(){
+  ge('foto-sonuc').style.display='block';
+  var h='<div style="display:-webkit-flex;display:flex;gap:6px;padding:4px 0;border-bottom:2px solid #eee;margin-bottom:4px"><span style="font-size:10px;font-weight:700;color:#888;-webkit-flex:1;flex:1">ÜRÜN</span><span style="font-size:10px;font-weight:700;color:#888;width:46px;text-align:center">ADET</span><span style="font-size:10px;font-weight:700;color:#888;width:66px;text-align:right">FİYAT</span><span style="width:30px"></span></div>';
+  for(var i=0;i<fotoKalemler.length;i++){
+    var it=fotoKalemler[i];
+    h+='<div style="display:-webkit-flex;display:flex;gap:6px;-webkit-align-items:center;align-items:center;padding:6px 0;border-bottom:1px solid #f5f5f5">'
+      +'<input style="margin:0;-webkit-flex:1;flex:1;padding:8px 9px;border:1.5px solid #ddd;border-radius:8px;font-size:14px" id="fi-name-'+i+'" value="'+it.name+'">'
+      +'<input style="margin:0;width:46px;padding:8px 6px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;text-align:center" id="fi-qty-'+i+'" type="number" min="1" value="'+it.qty+'">'
+      +'<input style="margin:0;width:66px;padding:8px 8px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;text-align:right" id="fi-price-'+i+'" type="number" value="'+it.price+'">'
+      +'<button onclick="fotoDelItem('+i+')" style="background:#ffeeee;color:#c0392b;border:1.5px solid #f0c0c0;border-radius:6px;padding:6px 8px;font-size:14px;cursor:pointer;width:30px">✕</button>'
+      +'</div>';
+  }
+  h+='<button onclick="fotoAddRow()" style="width:100%;margin-top:8px;padding:9px;background:#f5f5f5;border:1.5px dashed #ccc;border-radius:8px;font-size:13px;cursor:pointer;color:#555">+ Kalem Ekle</button>';
+  ge('foto-items').innerHTML=h;
+}
+
+function fotoDelItem(i){fotoKalemler.splice(i,1);renderFotoItems();}
+function fotoAddRow(){
+  fotoKalemler.push({name:'',qty:1,price:0});
+  renderFotoItems();
+}
+function fotoOnay(){
+  for(var i=0;i<fotoKalemler.length;i++){
+    var n=ge('fi-name-'+i),q=ge('fi-qty-'+i),p=ge('fi-price-'+i);
+    if(n)fotoKalemler[i].name=n.value.trim();
+    if(q)fotoKalemler[i].qty=parseInt(q.value)||1;
+    if(p)fotoKalemler[i].price=parseFloat(p.value)||0;
+  }
+  for(var i=0;i<fotoKalemler.length;i++){
+    var it=fotoKalemler[i];if(!it.name)continue;
+    var found=null;
+    for(var j=0;j<MENU.length;j++){if(MENU[j].name===it.name||MENU[j].label===it.name){found=MENU[j];break;}}
+    if(found){basket[found.id]=(basket[found.id]||0)+it.qty;}
+    else{var tid='foto_'+Date.now()+'_'+i;MENU.push({id:tid,label:it.name,name:it.name,price:it.price,cat:'ana',_tmp:true});basket[tid]=(basket[tid]||0)+it.qty;}
+  }
+  closeFotoModal();renderBasket();buildMenu();
+  showToast('Fotoğraftan '+fotoKalemler.length+' kalem eklendi \u2713');
+}
+function closeFotoModal(){ge('foto-modal').style.display='none';fotoKalemler=[];}
+window.fotoOku=fotoOku;window.fotoOnay=fotoOnay;window.fotoDelItem=fotoDelItem;window.fotoAddRow=fotoAddRow;window.closeFotoModal=closeFotoModal;
+// ── /FOTO OKUMA ─────────────────────────────
+
 function buildMenuYonetim(){
   if(!isGarson){
     ge('menu-yonetim-content').innerHTML='<div class="empty">&#128274; Sadece garson girişiyle erişilebilir</div>';
@@ -1301,9 +1413,9 @@ function renderRapor(){
     ge('rap-saat').innerHTML=h||'<div class="empty">Veri yok</div>';
     var np=calcNakPos(sales),nak=np.nak,pos=np.pos,iban=np.iban;
     var tot=nak+pos+iban||1;
-    ge('rap-ode').innerHTML='<div class="rbar"><div class="rtop"><span class="rname">Nakit</span><span class="rval">'+tl(nak)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(nak/tot*100)+'%;background:#1a4a2e"></div></div></div><div class="rbar"><div class="rtop"><span class="rname">POS</span><span class="rval">'+tl(pos)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(pos/tot*100)+'%;background:#185fa5"></div></div></div><div class="rbar"><div class="rtop"><span class="rname">0130ban</span><span class="rval">'+tl(iban)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(iban/tot*100)+'%;background:#6a1a9a"></div></div></div>';
-    var tot=nak+pos||1;
-    ge('rap-ode').innerHTML='<div class="rbar"><div class="rtop"><span class="rname">Nakit</span><span class="rval">'+tl(nak)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(nak/tot*100)+'%;background:#1a4a2e"></div></div></div><div class="rbar"><div class="rtop"><span class="rname">POS/\u0130ban</span><span class="rval">'+tl(pos)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(pos/tot*100)+'%;background:#185fa5"></div></div></div>';
+    ge('rap-ode').innerHTML=
+      '<div class="rbar"><div class="rtop"><span class="rname">Nakit</span><span class="rval">'+tl(nak)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round(nak/tot*100)+'%;background:#1a4a2e"></div></div></div>'
+      +'<div class="rbar"><div class="rtop"><span class="rname">POS / \u0130ban</span><span class="rval">'+tl(pos+iban)+'</span></div><div class="rbg"><div class="rfill" style="width:'+Math.round((pos+iban)/tot*100)+'%;background:#185fa5"></div></div></div>';
     var days=[],maxG=1;
     for(var i=rapPeriod-1;i>=0;i--){var dd=new Date();dd.setDate(dd.getDate()-i);var dk2=dd.getFullYear()+'-'+pad(dd.getMonth()+1)+'-'+pad(dd.getDate());days.push(dk2);}
     // Toplam label güncelle
@@ -1691,7 +1803,6 @@ function mSetPay(t){
   mPayType=t;
   ge('m-pb-nak').className='pb'+(t==='nakit'?' on':'');
   ge('m-pb-pos').className='pb'+(t==='pos'?' on':'');
-  ge('m-pb-iban').className='pb'+(t==='iban'?' on':'');
   ge('m-pb-karma').className='pb'+(t==='karma'?' on':'');
   ge('m-karma-blok').style.display=t==='karma'?'block':'none';
   if(t==='karma'){if(ge('m-karma-nakit'))ge('m-karma-nakit').value='';if(ge('m-karma-pos'))ge('m-karma-pos').value='';if(ge('m-karma-durum'))ge('m-karma-durum').textContent='';}
