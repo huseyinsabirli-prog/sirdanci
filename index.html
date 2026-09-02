@@ -1110,9 +1110,17 @@ function fotoOku(input){
     }
     var reader=new FileReader();
     reader.onload=function(e){
-      var b64=e.target.result.split(',')[1];
-      var mtype='image/jpeg';
-      if(file.type==='image/png')mtype='image/png';
+      var img=new Image();
+      img.onload=function(){
+        var maxS=1024;
+        var w=img.width,h=img.height;
+        if(w>h){if(w>maxS){h=Math.round(h*maxS/w);w=maxS;}}
+        else{if(h>maxS){w=Math.round(w*maxS/h);h=maxS;}}
+        var canvas=document.createElement('canvas');
+        canvas.width=w;canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        var b64=canvas.toDataURL('image/jpeg',0.85).split(',')[1];
+        var mtype='image/jpeg';
       var menuListesi=MENU.filter(function(m){return !m.hidden;}).map(function(m){return m.name+':'+m.price;}).join(',');
       var prompt='Adisyon fotoğrafı. Menü: '+menuListesi+'\nJSON döndür (başka hiçbir şey yazma):\n{"items":[{"name":"MENÜ_ADI","qty":1,"price":0}]}';
       fetch('https://openrouter.ai/api/v1/chat/completions',{
@@ -1155,6 +1163,8 @@ function fotoOku(input){
         renderFotoItems();
       })
       .catch(function(e){ge('foto-yukluyor').style.display='none';ge('foto-hata').style.display='block';ge('foto-hata').textContent='Hata: '+e.message;});
+      }; // img.onload kapanışı
+      img.src=e.target.result;
     };
     reader.readAsDataURL(file);
   }
