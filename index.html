@@ -1085,9 +1085,8 @@ var fotoKalemler=[];
 
 function loadAnthropicKey(){
   if(!fbOK||!db)return;
-  // Önce openrouter_key'i dene
-  db.ref('config/openrouter_key').once('value').then(function(snap){
-    if(snap.val()){ANTHROPIC_KEY=snap.val();console.log('OpenRouter key yüklendi');}
+  db.ref('config/nvidia_key').once('value').then(function(snap){
+    if(snap.val()){ANTHROPIC_KEY=snap.val();console.log('NVIDIA key yüklendi');}
   });
 }
 
@@ -1116,58 +1115,45 @@ function fotoOku(input){
       if(file.type==='image/png')mtype='image/png';
       var menuListesi=MENU.filter(function(m){return !m.hidden;}).map(function(m){return m.name+' ('+m.price+' TL)';}).join('\n');
       var prompt='Bu bir restoran adisyon kağıdının fotoğrafı. Aşağıdaki menüdeki ürünleri dikkate alarak fotoğraftaki kalemleri oku:\n\n'+menuListesi+'\n\nSadece JSON formatında döndür, başka hiçbir şey yazma:\n{"items":[{"name":"ÜRÜN ADI","qty":ADET,"price":FIYAT}]}\n\nEğer ürün menüde tam yoksa en yakın menü ürününü kullan. Fiyatı menüden al.';
-      var models=['google/gemma-4-31b-it:free','google/gemma-4-26b-a4b-it:free','moonshotai/kimi-vl-a3b-thinking:free'];
-      function deneModel(idx){
-        if(idx>=models.length){
+      fetch('https://integrate.api.nvidia.com/v1/chat/completions',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer '+ANTHROPIC_KEY
+        },
+        body:JSON.stringify({
+          model:'meta/llama-4-maverick-17b-128e-instruct',
+          max_tokens:1024,
+          messages:[{role:'user',content:[
+            {type:'image_url',image_url:{url:'data:'+mtype+';base64,'+b64}},
+            {type:'text',text:prompt}
+          ]}]
+        })
+      })
+      .then(function(r){return r.json();})
+      .then(function(data){
+        if(data.error){
+          console.log('NVIDIA hata:',data.error.message);
           ge('foto-yukluyor').style.display='none';
           ge('foto-hata').style.display='block';
-          ge('foto-hata').textContent='Tüm modeller meşgul, lütfen biraz bekleyip tekrar deneyin.';
+          ge('foto-hata').textContent='Hata: '+data.error.message;
           return;
         }
-        fetch('https://openrouter.ai/api/v1/chat/completions',{
-          method:'POST',
-          headers:{
-            'Content-Type':'application/json',
-            'Authorization':'Bearer '+ANTHROPIC_KEY,
-            'HTTP-Referer':'https://huseyinsabirli-prog.github.io/sirdanci/',
-            'X-Title':'Sirdanci Adisyon'
-          },
-          body:JSON.stringify({
-            model:models[idx],
-            max_tokens:1024,
-            messages:[{role:'user',content:[
-              {type:'image_url',image_url:{url:'data:'+mtype+';base64,'+b64}},
-              {type:'text',text:prompt}
-            ]}]
-          })
-        })
-        .then(function(r){return r.json();})
-        .then(function(data){
-          if(data.error){
-            console.log(models[idx]+' hata, sonraki deneniyor:',data.error.message);
-            deneModel(idx+1);
-            return;
-          }
-          ge('foto-yukluyor').style.display='none';
-          var text=data.choices[0].message.content.trim();
-          var match=text.match(/\{[\s\S]*\}/);
-          if(!match){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Okunamadı: '+text.substring(0,100);return;}
-          fotoKalemler=JSON.parse(match[0]).items||[];
-          renderFotoItems();
-        })
-        .catch(function(err){
-          console.log(models[idx]+' catch hata, sonraki:',err.message);
-          deneModel(idx+1);
-        });
-      }
-      deneModel(0);
+        ge('foto-yukluyor').style.display='none';
+        var text=data.choices[0].message.content.trim();
+        var match=text.match(/\{[\s\S]*\}/);
+        if(!match){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Okunamadi: '+text.substring(0,150);return;}
+        try{fotoKalemler=JSON.parse(match[0]).items||[];}catch(ex){ge('foto-hata').style.display='block';ge('foto-hata').textContent='JSON hata: '+ex.message;return;}
+        renderFotoItems();
+      })
+      .catch(function(e){ge('foto-yukluyor').style.display='none';ge('foto-hata').style.display='block';ge('foto-hata').textContent='Hata: '+e.message;});
     };
     reader.readAsDataURL(file);
   }
   if(ANTHROPIC_KEY){console.log('Key hazır, devam ediyor');devam();}
   else if(fbOK&&db){
     console.log('Key yok, Firebase den yükleniyor');
-    db.ref('config/openrouter_key').once('value').then(function(snap){
+    db.ref('config/nvidia_key').once('value').then(function(snap){
       if(snap.val())ANTHROPIC_KEY=snap.val();
       devam();
     }).catch(function(err){console.log('Firebase hata:',err);devam();});
@@ -1900,4 +1886,3 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch
 </script>
 </body>
 </html>
-
