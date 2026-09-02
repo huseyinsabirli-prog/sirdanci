@@ -1113,19 +1113,20 @@ function fotoOku(input){
       var b64=e.target.result.split(',')[1];
       var mtype='image/jpeg';
       if(file.type==='image/png')mtype='image/png';
-      var menuListesi=MENU.filter(function(m){return !m.hidden;}).map(function(m){return m.name+' ('+m.price+' TL)';}).join('\n');
-      var prompt='Bu bir restoran adisyon kağıdının fotoğrafı. Aşağıdaki menüdeki ürünleri dikkate alarak fotoğraftaki kalemleri oku:\n\n'+menuListesi+'\n\nSadece JSON formatında döndür, başka hiçbir şey yazma:\n{"items":[{"name":"ÜRÜN ADI","qty":ADET,"price":FIYAT}]}\n\nEğer ürün menüde tam yoksa en yakın menü ürününü kullan. Fiyatı menüden al.';
+      var menuListesi=MENU.filter(function(m){return !m.hidden;}).map(function(m){return m.name+':'+m.price;}).join(',');
+      var prompt='Adisyon fotoğrafı. Menü: '+menuListesi+'\nJSON döndür (başka hiçbir şey yazma):\n{"items":[{"name":"MENÜ_ADI","qty":1,"price":0}]}';
       fetch('https://openrouter.ai/api/v1/chat/completions',{
         method:'POST',
         headers:{
           'Content-Type':'application/json',
           'Authorization':'Bearer '+ANTHROPIC_KEY,
           'HTTP-Referer':'https://huseyinsabirli-prog.github.io/sirdanci/',
-          'X-Title':'Sirdanci Adisyon'
+          'X-Title':'Sirdanci'
         },
         body:JSON.stringify({
           model:'openrouter/free',
-          max_tokens:1024,
+          max_tokens:512,
+          temperature:0,
           messages:[{role:'user',content:[
             {type:'image_url',image_url:{url:'data:'+mtype+';base64,'+b64}},
             {type:'text',text:prompt}
