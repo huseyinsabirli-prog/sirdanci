@@ -1124,7 +1124,7 @@ function fotoOku(input){
           'X-Title':'Sirdanci Adisyon'
         },
         body:JSON.stringify({
-          model:'meta/llama-3.2-11b-vision-instruct',
+          model:'openrouter/free',
           max_tokens:1024,
           messages:[{role:'user',content:[
             {type:'image_url',image_url:{url:'data:'+mtype+';base64,'+b64}},
