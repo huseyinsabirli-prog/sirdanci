@@ -1122,7 +1122,7 @@ function fotoOku(input){
           'Authorization':'Bearer '+ANTHROPIC_KEY
         },
         body:JSON.stringify({
-          model:'meta/llama-4-maverick-17b-128e-instruct',
+          model:'meta/llama-3.2-90b-vision-instruct',
           max_tokens:1024,
           messages:[{role:'user',content:[
             {type:'image_url',image_url:{url:'data:'+mtype+';base64,'+b64}},
