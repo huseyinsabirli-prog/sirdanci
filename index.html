@@ -1151,12 +1151,21 @@ function fotoOku(input){
           return;
         }
         ge('foto-yukluyor').style.display='none';
-        if(!data.choices||!data.choices[0]||!data.choices[0].message||!data.choices[0].message.content){
+        // Farklı response yapılarını dene
+        var text='';
+        try{
+          if(data.choices&&data.choices[0]){
+            var msg=data.choices[0].message||data.choices[0].delta;
+            if(msg)text=msg.content||msg.text||'';
+          }
+          if(!text&&data.content)text=data.content;
+          if(!text&&data.text)text=data.text;
+        }catch(ex){text='';}
+        if(!text){
           ge('foto-hata').style.display='block';
-          ge('foto-hata').textContent='Model yanıt vermedi, tekrar deneyin. ('+(data.error?data.error.message:JSON.stringify(data).substring(0,100))+')';
+          ge('foto-hata').textContent='Yanıt alınamadı, tekrar deneyin.';
           return;
         }
-        var text=data.choices[0].message.content.trim();
         var match=text.match(/\{[\s\S]*\}/);
         if(!match){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Okunamadi: '+text.substring(0,150);return;}
         try{fotoKalemler=JSON.parse(match[0]).items||[];}catch(ex){ge('foto-hata').style.display='block';ge('foto-hata').textContent='JSON hata: '+ex.message;return;}
