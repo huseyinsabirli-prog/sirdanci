@@ -1193,40 +1193,76 @@ function fotoOnay(){
 function ocrTextToItems(text){
   var items=[];
   var lines=text.split('\n');
-  // Menü adlarını normalize et - küçük harf, Türkçe karakter normalize
-  function norm(s){return s.toLowerCase().replace(/ş/g,'s').replace(/ı/g,'i').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[^a-z0-9 ]/g,'').trim();}
-  var menuNorm=MENU.filter(function(m){return !m.hidden;}).map(function(m){return {id:m.id,name:m.name,label:m.label,price:m.price,norm:norm(m.name)};});
+
+  function norm(s){
+    return s.toLowerCase()
+      .replace(/ş/g,'s').replace(/ı/g,'i').replace(/ğ/g,'g')
+      .replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c')
+      .replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  }
+
+  // Levenshtein mesafesi - benzerlik ölçer
+  function lev(a,b){
+    var m=a.length,n=b.length;
+    var d=[];
+    for(var i=0;i<=m;i++){d[i]=[i];}
+    for(var j=0;j<=n;j++){d[0][j]=j;}
+    for(var i=1;i<=m;i++)for(var j=1;j<=n;j++){
+      d[i][j]=a[i-1]===b[j-1]?d[i-1][j-1]:1+Math.min(d[i-1][j],d[i][j-1],d[i-1][j-1]);
+    }
+    return d[m][n];
+  }
+
+  var menuNorm=MENU.filter(function(m){return !m.hidden;}).map(function(m){
+    return {id:m.id,name:m.name,label:m.label,price:m.price,norm:norm(m.name)};
+  });
 
   for(var i=0;i<lines.length;i++){
     var line=lines[i].trim();
-    if(!line)continue;
+    if(!line||line.length<2)continue;
     var lineNorm=norm(line);
     if(lineNorm.length<2)continue;
 
-    // Sayı bul (miktar)
-    var qtyMatch=line.match(/[x×\*]\s*(\d+)|(\d+)\s*[x×\*]|^\s*[•\.\-]\s*(\d+)/i);
+    // Miktar bul
     var qty=1;
-    if(qtyMatch)qty=parseInt(qtyMatch[1]||qtyMatch[2]||qtyMatch[3])||1;
+    var qtyMatch=line.match(/\b(\d+)\b/g);
+    // İlk makul sayıyı miktar olarak al (1-99 arası)
+    if(qtyMatch){
+      for(var q=0;q<qtyMatch.length;q++){
+        var n=parseInt(qtyMatch[q]);
+        if(n>=1&&n<=99){qty=n;break;}
+      }
+    }
 
-    // Menüde eşleşme ara
-    var bestMatch=null,bestScore=0;
+    // En iyi menü eşleşmesini bul
+    var bestMatch=null,bestScore=999;
     for(var j=0;j<menuNorm.length;j++){
       var m=menuNorm[j];
-      // Tam eşleşme
-      if(lineNorm.indexOf(m.norm)>=0||m.norm.indexOf(lineNorm)>=0){
-        var score=m.norm.length;
-        if(score>bestScore){bestScore=score;bestMatch=m;}
-      }
-      // Kısmi eşleşme - en az 4 karakter
       var mWords=m.norm.split(' ');
+
+      // Her menü kelimesini satırda ara
       for(var k=0;k<mWords.length;k++){
-        if(mWords[k].length>=4&&lineNorm.indexOf(mWords[k])>=0){
-          if(m.norm.length/2>bestScore){bestScore=m.norm.length/2;bestMatch=m;}
+        var word=mWords[k];
+        if(word.length<3)continue;
+
+        // Satırdaki her kelimeyle karşılaştır
+        var lineWords=lineNorm.split(' ');
+        for(var l=0;l<lineWords.length;l++){
+          var lw=lineWords[l];
+          if(lw.length<3)continue;
+
+          // Levenshtein benzerliği - max hata = kelimenin %30'u
+          var maxErr=Math.floor(Math.max(word.length,lw.length)*0.35);
+          var dist=lev(word,lw);
+          if(dist<=maxErr&&dist<bestScore){
+            bestScore=dist;
+            bestMatch=m;
+          }
         }
       }
     }
+
     if(bestMatch){
-      // Zaten eklenmiş mi?
       var existing=null;
       for(var e=0;e<items.length;e++){if(items[e].name===bestMatch.name){existing=items[e];break;}}
       if(existing){existing.qty+=qty;}
