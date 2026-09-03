@@ -1084,10 +1084,8 @@ var ANTHROPIC_KEY='';
 var fotoKalemler=[];
 
 function loadAnthropicKey(){
-  if(!fbOK||!db)return;
-  db.ref('config/openrouter_key').once('value').then(function(snap){
-    if(snap.val()){ANTHROPIC_KEY=snap.val();console.log('OpenRouter key yüklendi');}
-  });
+  // OCR.space key sabit - Firebase'e gerek yok
+  ANTHROPIC_KEY='K89835301988957';
 }
 
 function fotoOku(input){
@@ -1120,61 +1118,28 @@ function fotoOku(input){
         canvas.width=w;canvas.height=h;
         canvas.getContext('2d').drawImage(img,0,0,w,h);
         var b64=canvas.toDataURL('image/jpeg',0.85).split(',')[1];
-        var mtype='image/jpeg';
-      var menuListesi=MENU.filter(function(m){return !m.hidden;}).map(function(m){return m.name+':'+m.price;}).join(',');
-      var prompt='Adisyon fotoğrafı. Menü: '+menuListesi+'\nJSON döndür (başka hiçbir şey yazma):\n{"items":[{"name":"MENÜ_ADI","qty":1,"price":0}]}';
-      fetch('https://openrouter.ai/api/v1/chat/completions',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'Authorization':'Bearer '+ANTHROPIC_KEY,
-          'HTTP-Referer':'https://huseyinsabirli-prog.github.io/sirdanci/',
-          'X-Title':'Sirdanci'
-        },
-        body:JSON.stringify({
-          model:'openrouter/free',
-          max_tokens:512,
-          temperature:0,
-          messages:[{role:'user',content:[
-            {type:'image_url',image_url:{url:'data:'+mtype+';base64,'+b64}},
-            {type:'text',text:prompt}
-          ]}]
-        })
-      })
-      .then(function(r){return r.json();})
-      .then(function(data){
-        if(data.error){
-          console.log('NVIDIA hata:',data.error.message);
+        var formData=new FormData();
+        formData.append('base64Image','data:image/jpeg;base64,'+b64);
+        formData.append('apikey',ANTHROPIC_KEY);
+        formData.append('OCREngine','3');
+        formData.append('language','tur');
+        formData.append('isTable','true');
+        formData.append('scale','true');
+        fetch('https://api.ocr.space/parse/image',{method:'POST',body:formData})
+        .then(function(r){return r.json();})
+        .then(function(data){
           ge('foto-yukluyor').style.display='none';
-          ge('foto-hata').style.display='block';
-          ge('foto-hata').textContent='Hata: '+data.error.message;
-          return;
-        }
-        ge('foto-yukluyor').style.display='none';
-        // Farklı response yapılarını dene
-        var text='';
-        try{
-          if(data.choices&&data.choices[0]){
-            var msg=data.choices[0].message||data.choices[0].delta;
-            if(msg)text=msg.content||msg.text||'';
-          }
-          if(!text&&data.content)text=data.content;
-          if(!text&&data.text)text=data.text;
-        }catch(ex){text='';}
-        if(!text){
-          ge('foto-hata').style.display='block';
-          ge('foto-hata').textContent='Yanıt alınamadı, tekrar deneyin.';
-          return;
-        }
-        var match=text.match(/\{[\s\S]*\}/);
-        if(!match){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Okunamadi: '+text.substring(0,150);return;}
-        try{fotoKalemler=JSON.parse(match[0]).items||[];}catch(ex){ge('foto-hata').style.display='block';ge('foto-hata').textContent='JSON hata: '+ex.message;return;}
-        renderFotoItems();
-      })
-      .catch(function(e){ge('foto-yukluyor').style.display='none';ge('foto-hata').style.display='block';ge('foto-hata').textContent='Hata: '+e.message;});
+          if(data.IsErroredOnProcessing){ge('foto-hata').style.display='block';ge('foto-hata').textContent='OCR Hata: '+(data.ErrorMessage||'Bilinmeyen hata');return;}
+          var ocrText=data.ParsedResults&&data.ParsedResults[0]?data.ParsedResults[0].ParsedText:'';
+          if(!ocrText.trim()){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Metin okunamadi. Daha iyi isikta tekrar deneyin.';return;}
+          fotoKalemler=ocrTextToItems(ocrText);
+          if(!fotoKalemler.length){ge('foto-hata').style.display='block';ge('foto-hata').textContent='Urun bulunamadi. Okunan: '+ocrText.substring(0,150);return;}
+          renderFotoItems();
+        })
+        .catch(function(e){ge('foto-yukluyor').style.display='none';ge('foto-hata').style.display='block';ge('foto-hata').textContent='Hata: '+e.message;});
       }; // img.onload kapanışı
       img.src=e.target.result;
-    };
+    }; // reader.onload kapanışı
     reader.readAsDataURL(file);
   }
   if(ANTHROPIC_KEY){console.log('Key hazır, devam ediyor');devam();}
@@ -1225,6 +1190,52 @@ function fotoOnay(){
   closeFotoModal();renderBasket();buildMenu();
   showToast('Fotoğraftan '+fotoKalemler.length+' kalem eklendi \u2713');
 }
+function ocrTextToItems(text){
+  var items=[];
+  var lines=text.split('\n');
+  // Menü adlarını normalize et - küçük harf, Türkçe karakter normalize
+  function norm(s){return s.toLowerCase().replace(/ş/g,'s').replace(/ı/g,'i').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[^a-z0-9 ]/g,'').trim();}
+  var menuNorm=MENU.filter(function(m){return !m.hidden;}).map(function(m){return {id:m.id,name:m.name,label:m.label,price:m.price,norm:norm(m.name)};});
+
+  for(var i=0;i<lines.length;i++){
+    var line=lines[i].trim();
+    if(!line)continue;
+    var lineNorm=norm(line);
+    if(lineNorm.length<2)continue;
+
+    // Sayı bul (miktar)
+    var qtyMatch=line.match(/[x×\*]\s*(\d+)|(\d+)\s*[x×\*]|^\s*[•\.\-]\s*(\d+)/i);
+    var qty=1;
+    if(qtyMatch)qty=parseInt(qtyMatch[1]||qtyMatch[2]||qtyMatch[3])||1;
+
+    // Menüde eşleşme ara
+    var bestMatch=null,bestScore=0;
+    for(var j=0;j<menuNorm.length;j++){
+      var m=menuNorm[j];
+      // Tam eşleşme
+      if(lineNorm.indexOf(m.norm)>=0||m.norm.indexOf(lineNorm)>=0){
+        var score=m.norm.length;
+        if(score>bestScore){bestScore=score;bestMatch=m;}
+      }
+      // Kısmi eşleşme - en az 4 karakter
+      var mWords=m.norm.split(' ');
+      for(var k=0;k<mWords.length;k++){
+        if(mWords[k].length>=4&&lineNorm.indexOf(mWords[k])>=0){
+          if(m.norm.length/2>bestScore){bestScore=m.norm.length/2;bestMatch=m;}
+        }
+      }
+    }
+    if(bestMatch){
+      // Zaten eklenmiş mi?
+      var existing=null;
+      for(var e=0;e<items.length;e++){if(items[e].name===bestMatch.name){existing=items[e];break;}}
+      if(existing){existing.qty+=qty;}
+      else{items.push({name:bestMatch.name,qty:qty,price:bestMatch.price});}
+    }
+  }
+  return items;
+}
+
 function closeFotoModal(){ge('foto-modal').style.display='none';fotoKalemler=[];}
 window.fotoOku=fotoOku;window.fotoOnay=fotoOnay;window.fotoDelItem=fotoDelItem;window.fotoAddRow=fotoAddRow;window.closeFotoModal=closeFotoModal;
 // ── /FOTO OKUMA ─────────────────────────────
