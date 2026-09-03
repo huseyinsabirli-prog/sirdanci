@@ -1121,10 +1121,10 @@ function fotoOku(input){
         var formData=new FormData();
         formData.append('base64Image','data:image/jpeg;base64,'+b64);
         formData.append('apikey',ANTHROPIC_KEY);
-        formData.append('OCREngine','3');
-        formData.append('language','tur');
+        formData.append('OCREngine','2');
         formData.append('isTable','true');
         formData.append('scale','true');
+        formData.append('detectOrientation','true');
         fetch('https://api.ocr.space/parse/image',{method:'POST',body:formData})
         .then(function(r){return r.json();})
         .then(function(data){
@@ -1225,7 +1225,7 @@ function ocrTextToItems(text){
       var matched=0;
       for(var k=0;k<m.words.length;k++){
         for(var l=0;l<lineWords.length;l++){
-          var maxErr=Math.floor(Math.max(m.words[k].length,lineWords[l].length)*0.4);
+          var maxErr=Math.floor(Math.max(m.words[k].length,lineWords[l].length)*0.5);
           if(lev(m.words[k],lineWords[l])<=maxErr){matched++;break;}
         }
       }
@@ -1251,15 +1251,17 @@ function ocrTextToItems(text){
     var match=findMenu(lineNorm);
     if(!match)continue;
 
-    // Miktar bul - satırdaki sayılar
-    var nums=line.replace(/[x×\*\.]/g,' ').match(/\b(\d+)\b/g);
+    // Miktar bul - tutardan ayırt et (miktar genelde küçük, tutar büyük)
+    var nums=line.replace(/[x×\*\.°]/g,' ').match(/\b(\d+)\b/g);
     var qty=1;
     if(nums){
+      var candidates=[];
       for(var q=0;q<nums.length;q++){
         var n=parseInt(nums[q]);
-        // 1-20 arası makul miktar
-        if(n>=1&&n<=20){qty=n;break;}
+        if(n>=1&&n<=20)candidates.push(n);
       }
+      // En küçük makul sayıyı miktar olarak al (tutar genelde 3+ haneli)
+      if(candidates.length)qty=candidates[0];
     }
 
     // Zaten eklenmiş mi?
