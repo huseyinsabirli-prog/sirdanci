@@ -1192,7 +1192,7 @@ function fotoOnay(){
 }
 function ocrTextToItems(text){
   var items=[];
-  var lines=text.split('\n');
+  var lines=text.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length>0;});
 
   function norm(s){
     return s.toLowerCase()
@@ -1201,73 +1201,72 @@ function ocrTextToItems(text){
       .replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
   }
 
-  // Levenshtein mesafesi - benzerlik ölçer
   function lev(a,b){
-    var m=a.length,n=b.length;
-    var d=[];
-    for(var i=0;i<=m;i++){d[i]=[i];}
-    for(var j=0;j<=n;j++){d[0][j]=j;}
-    for(var i=1;i<=m;i++)for(var j=1;j<=n;j++){
+    var m=a.length,n=b.length,d=[],i,j;
+    for(i=0;i<=m;i++){d[i]=[i];}
+    for(j=0;j<=n;j++){d[0][j]=j;}
+    for(i=1;i<=m;i++)for(j=1;j<=n;j++){
       d[i][j]=a[i-1]===b[j-1]?d[i-1][j-1]:1+Math.min(d[i-1][j],d[i][j-1],d[i-1][j-1]);
     }
     return d[m][n];
   }
 
+  // Bir kelimenin menüdeki en iyi eşleşmesini bul
   var menuNorm=MENU.filter(function(m){return !m.hidden;}).map(function(m){
-    return {id:m.id,name:m.name,label:m.label,price:m.price,norm:norm(m.name)};
+    return {name:m.name,price:m.price,words:norm(m.name).split(' ').filter(function(w){return w.length>=3;})};
   });
 
-  for(var i=0;i<lines.length;i++){
-    var line=lines[i].trim();
-    if(!line||line.length<2)continue;
-    var lineNorm=norm(line);
-    if(lineNorm.length<2)continue;
-
-    // Miktar bul
-    var qty=1;
-    var qtyMatch=line.match(/\b(\d+)\b/g);
-    // İlk makul sayıyı miktar olarak al (1-99 arası)
-    if(qtyMatch){
-      for(var q=0;q<qtyMatch.length;q++){
-        var n=parseInt(qtyMatch[q]);
-        if(n>=1&&n<=99){qty=n;break;}
-      }
-    }
-
-    // En iyi menü eşleşmesini bul
+  function findMenu(lineNorm){
     var bestMatch=null,bestScore=999;
+    var lineWords=lineNorm.split(' ').filter(function(w){return w.length>=3;});
+    if(!lineWords.length)return null;
     for(var j=0;j<menuNorm.length;j++){
       var m=menuNorm[j];
-      var mWords=m.norm.split(' ');
-
-      // Her menü kelimesini satırda ara
-      for(var k=0;k<mWords.length;k++){
-        var word=mWords[k];
-        if(word.length<3)continue;
-
-        // Satırdaki her kelimeyle karşılaştır
-        var lineWords=lineNorm.split(' ');
+      var matched=0;
+      for(var k=0;k<m.words.length;k++){
         for(var l=0;l<lineWords.length;l++){
-          var lw=lineWords[l];
-          if(lw.length<3)continue;
-
-          // Levenshtein benzerliği - max hata = kelimenin %30'u
-          var maxErr=Math.floor(Math.max(word.length,lw.length)*0.35);
-          var dist=lev(word,lw);
-          if(dist<=maxErr&&dist<bestScore){
-            bestScore=dist;
-            bestMatch=m;
-          }
+          var maxErr=Math.floor(Math.max(m.words[k].length,lineWords[l].length)*0.4);
+          if(lev(m.words[k],lineWords[l])<=maxErr){matched++;break;}
         }
+      }
+      if(matched>0){
+        var score=lev(norm(m.name),lineNorm);
+        var ratio=matched/m.words.length;
+        if(ratio>=0.5&&score<bestScore){bestScore=score;bestMatch=m;}
+      }
+    }
+    return bestMatch;
+  }
+
+  // Her satırı işle
+  for(var i=0;i<lines.length;i++){
+    var line=lines[i];
+    // Başlık satırlarını atla
+    var lineU=line.toUpperCase();
+    if(lineU.indexOf('CINSI')>=0||lineU.indexOf('MIKTARI')>=0||lineU.indexOf('TUTARI')>=0)continue;
+    if(lineU.indexOf('TOPLAM')>=0||lineU.indexOf('GARSONIYE')>=0||lineU.indexOf('ADISYON')>=0)continue;
+    if(lineU.indexOf('MASA NO')>=0||lineU.indexOf('NAKIT')>=0||lineU.indexOf('KREDI')>=0)continue;
+
+    var lineNorm=norm(line);
+    var match=findMenu(lineNorm);
+    if(!match)continue;
+
+    // Miktar bul - satırdaki sayılar
+    var nums=line.replace(/[x×\*\.]/g,' ').match(/\b(\d+)\b/g);
+    var qty=1;
+    if(nums){
+      for(var q=0;q<nums.length;q++){
+        var n=parseInt(nums[q]);
+        // 1-20 arası makul miktar
+        if(n>=1&&n<=20){qty=n;break;}
       }
     }
 
-    if(bestMatch){
-      var existing=null;
-      for(var e=0;e<items.length;e++){if(items[e].name===bestMatch.name){existing=items[e];break;}}
-      if(existing){existing.qty+=qty;}
-      else{items.push({name:bestMatch.name,qty:qty,price:bestMatch.price});}
-    }
+    // Zaten eklenmiş mi?
+    var existing=null;
+    for(var e=0;e<items.length;e++){if(items[e].name===match.name){existing=items[e];break;}}
+    if(existing){existing.qty+=qty;}
+    else{items.push({name:match.name,qty:qty,price:match.price});}
   }
   return items;
 }
