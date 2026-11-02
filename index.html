@@ -278,15 +278,15 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
     </div>
   </div>
 
-  <!-- SİLME ONAY MODALI -->
+  <!-- ONAY MODALI (silme varsayılan; aktarım gibi diğer onaylar showConfirm opt ile metni değiştirir) -->
 <div id="confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center">
   <div style="background:#fff;border-radius:16px;padding:24px 20px;width:88%;max-width:320px;text-align:center">
-    <div style="font-size:32px;margin-bottom:10px">🗑️</div>
-    <div style="font-size:16px;font-weight:800;margin-bottom:8px">Emin misiniz?</div>
+    <div style="font-size:32px;margin-bottom:10px" id="confirm-ikon">🗑️</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:8px" id="confirm-baslik">Emin misiniz?</div>
     <div style="font-size:13px;color:#888;margin-bottom:20px" id="confirm-msg">Bu kayıt silinecek, geri alınamaz.</div>
     <div style="display:-webkit-flex;display:flex;gap:10px">
       <button onclick="confirmNo()" style="flex:1;padding:12px;border:2px solid #ddd;border-radius:10px;background:#f8f8f8;font-size:14px;font-weight:700;cursor:pointer;-webkit-appearance:none">Vazgeç</button>
-      <button onclick="confirmYes()" style="flex:1;padding:12px;border:none;border-radius:10px;background:#c0392b;color:#fff;font-size:14px;font-weight:700;cursor:pointer;-webkit-appearance:none">Evet, Sil</button>
+      <button id="confirm-evet" onclick="confirmYes()" style="flex:1;padding:12px;border:none;border-radius:10px;background:#c0392b;color:#fff;font-size:14px;font-weight:700;cursor:pointer;-webkit-appearance:none">Evet, Sil</button>
     </div>
   </div>
 </div>
@@ -987,7 +987,13 @@ function renderSatis(){
   });
 }
 var _confirmCb = null;
-function showConfirm(msg, cb){
+// opt verilmezse silme onayı görünümü (🗑️ / "Evet, Sil" / kırmızı) kullanılır; her çağrıda sıfırlanır
+function showConfirm(msg, cb, opt){
+  opt = opt || {};
+  ge('confirm-ikon').textContent = opt.ikon || '🗑️';
+  ge('confirm-baslik').textContent = opt.baslik || 'Emin misiniz?';
+  ge('confirm-evet').textContent = opt.evet || 'Evet, Sil';
+  ge('confirm-evet').style.background = opt.renk || '#c0392b';
   ge('confirm-msg').textContent = msg;
   ge('confirm-modal').style.display = '-webkit-flex';
   ge('confirm-modal').style.display = 'flex';
@@ -2036,7 +2042,7 @@ var FINANS_ORIGIN='https://ayten-abla-muhasebe.sirdanciaytenabla.chatgpt.site';
 var NONCE_OMRU=10*60*1000;
 var aktarim=null;
 // Yayındaki sürümü doğrulamak için; aktarım veya okuma mantığı her değiştiğinde artırılır
-var ADISYON_SURUM='2026.11.02-r2 (aktarım v1, REST sunucu okuması)';
+var ADISYON_SURUM='2026.11.02-r3 (aktarım v1, REST sunucu okuması)';
 if(ge('adisyon-surum'))ge('adisyon-surum').textContent='Sürüm: '+ADISYON_SURUM;
 
 function kurus(v){return Math.round(Number(v)*100);}
@@ -2169,7 +2175,7 @@ function finansaAktar(){
     aktarimBitir();
   }
   var dk=viewDate;
-  if(dk===todayKey())showConfirm(fmtD(dk)+' vardiyası henüz bitmedi (07:00\'de kapanır). Şimdi aktarırsanız sonraki satışlar için yeniden aktarmanız gerekir. Devam edilsin mi?',function(){aktarimBaslat(dk);});
+  if(dk===todayKey())showConfirm(fmtD(dk)+' iş günü henüz bitmedi (uygulamada iş günü 07:00\'de değişir). Şimdi aktarırsanız şu ana kadarki satışlar gider; bundan sonraki satışlar için iş günü bitince yeniden aktarmanız gerekir. Devam edilsin mi?',function(){aktarimBaslat(dk);},{ikon:'📤',baslik:'Finansa aktarılsın mı?',evet:'Evet, Aktar',renk:'#1a4a2e'});
   else aktarimBaslat(dk);
 }
 function aktarimBaslat(dk){
