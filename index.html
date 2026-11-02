@@ -257,6 +257,13 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
         </div>
       </div>
     </div>
+    <!-- Finans Aktarımı -->
+    <div class="card">
+      <div class="lbl">Finans Aktar&#305;m&#305;</div>
+      <button class="sbtn g" id="btn-aktar" onclick="finansaAktar()" style="width:100%;-webkit-justify-content:center;justify-content:center;padding:12px">&#128228; Bu G&uuml;n&uuml; Finansa Aktar</button>
+      <div id="aktar-durum" style="font-size:12px;margin-top:8px;line-height:1.5;color:#555;white-space:pre-line"></div>
+      <button class="sbtn" id="btn-aktar-tekrar" onclick="aktarTekrarGonder()" style="display:none;margin-top:8px">&#8635; Ayn&#305; Veriyi Tekrar G&ouml;nder</button>
+    </div>
     <div class="card">
       <div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;margin-bottom:8px">
         <div class="lbl" style="margin:0">Satis Kayitlari</div>
@@ -2015,6 +2022,194 @@ function saveManuel(){
     showToast('Adisyon eklendi ✓');
   });
 }
+
+// ── FİNANS AKTARIMI (veri sözleşmesi v1) ──
+// Seçili günün ödenmiş satışlarının tam görüntüsü, finansın "bekleyenler" kuyruğuna gönderilir.
+// Gelir oluşturmaz/onaylamaz; finans adisyona geri yazmaz. Yalnız sunucudan doğrulanmış okuma gönderilir.
+var FINANS_URL='https://ayten-abla-muhasebe.sirdanciaytenabla.chatgpt.site/#adisyon-intake';
+var FINANS_ORIGIN='https://ayten-abla-muhasebe.sirdanciaytenabla.chatgpt.site';
+var NONCE_OMRU=10*60*1000;
+var aktarim=null;
+
+function kurus(v){return Math.round(Number(v)*100);}
+function sayiMi(v){return typeof v==='number'&&isFinite(v);}
+function eskiKayitMi(s){return typeof s.id==='number';} // UUID öncesi kayıtlar: Date.now() kimlikli
+function vardiyaDakika(t){if(!t)return 99999;var p=t.split(':');return((+p[0])*60+(+p[1])-420+1440)%1440;}
+
+// Kaynak ödeme alanlarından payments[] üretir. Belirsiz eski kayıtlar "unresolved" gider (finans çözmeden onaylanmaz).
+function satisOdemeleri(s,hatalar,no){
+  var T=kurus(s.total),out=[];
+  if(s.pay==='nakit')out.push({method:'cash',amountMinor:T});
+  else if(s.pay==='iban')out.push({method:'bank_transfer',amountMinor:T});
+  else if(s.pay==='pos'){
+    var ibanNot=String(s.note||'').toLowerCase().indexOf('iban')>=0;
+    out.push({method:(eskiKayitMi(s)&&ibanNot)?'unresolved':'card',amountMinor:T});
+  }
+  else if(s.pay==='karma'){
+    var n=kurus(s.karmaNakit||0),c=kurus(s.karmaPos||0),b=kurus(s.karmaIban||0);
+    if(n<0||c<0||b<0){hatalar.push(no+': karma tutar negatif');return out;}
+    if(n)out.push({method:'cash',amountMinor:n});
+    if(c)out.push({method:eskiKayitMi(s)?'unresolved':'card',amountMinor:c});
+    if(b)out.push({method:'bank_transfer',amountMinor:b});
+  }
+  else hatalar.push(no+': bilinmeyen ödeme şekli ('+s.pay+')');
+  return out;
+}
+function nullVeyaSayi(v){return(v===undefined||v===null)?null:v;}
+
+function aktarimPaketi(dk,ham,readAt){
+  var hatalar=[],sales=[],ids={};
+  var arr=toArr(ham);
+  if(arr.length>1000)hatalar.push('Günde en fazla 1000 satış aktarılabilir (bu günde '+arr.length+' var)');
+  for(var i=0;i<arr.length;i++){
+    var s=arr[i],no=(i+1)+'. satış'+(s&&s.time?' ('+s.time+')':'');
+    if(!s||typeof s!=='object'){hatalar.push(no+': bozuk kayıt');continue;}
+    var sid=(s.id===undefined||s.id===null)?'':String(s.id);
+    if(!sid){hatalar.push(no+': satış kimliği yok');continue;}
+    if(sid.length>200){hatalar.push(no+': kimlik çok uzun');continue;}
+    if(ids[sid]){hatalar.push(no+': aynı kimlik iki kez var ('+sid+')');continue;}
+    ids[sid]=true;
+    if(!sayiMi(s.total)||s.total<0){hatalar.push(no+': geçersiz toplam');continue;}
+    if(s.origTotal!==undefined&&s.origTotal!==null&&(!sayiMi(s.origTotal)||s.origTotal<0)){hatalar.push(no+': geçersiz orijinal toplam');continue;}
+    var note=s.note===undefined||s.note===null?'':String(s.note);
+    if(note.length>1000){hatalar.push(no+': açıklama 1000 karakterden uzun');continue;}
+    if(!Array.isArray(s.items)||!s.items.length){hatalar.push(no+': ürün yok');continue;}
+    if(s.items.length>100){hatalar.push(no+': 100\'den fazla kalem');continue;}
+    var items=[],kalemHata=false;
+    for(var j=0;j<s.items.length;j++){
+      var it=s.items[j];
+      if(!it||typeof it.id!=='string'||!it.id||it.id.length>200||typeof it.name!=='string'||!it.name||it.name.length>200){hatalar.push(no+': '+(j+1)+'. kalemin kimliği/adı geçersiz');kalemHata=true;break;}
+      if(!(Number.isInteger(it.qty)&&it.qty>0&&it.qty<=10000)){hatalar.push(no+': '+it.name+' adedi geçersiz');kalemHata=true;break;}
+      if(!sayiMi(it.price)||it.price<0){hatalar.push(no+': '+it.name+' fiyatı geçersiz');kalemHata=true;break;}
+      items.push({productId:it.id,name:it.name,qty:it.qty,unitPriceMinor:kurus(it.price)});
+    }
+    if(kalemHata)continue;
+    var once=hatalar.length,payments=satisOdemeleri(s,hatalar,no);
+    if(hatalar.length>once)continue;
+    if(payments.length>10){hatalar.push(no+': 10\'dan fazla ödeme');continue;}
+    var totalMinor=kurus(s.total),odenen=0;
+    for(var k=0;k<payments.length;k++)odenen+=payments[k].amountMinor;
+    // Yeni kayıtta ödeme toplamı tutmalı; eski tutarsız kayıt bekleyen kuyruğa gelebilir, finans düzeltmeden onaylamaz
+    if(odenen!==totalMinor&&!eskiKayitMi(s)){hatalar.push(no+': ödemeler toplamı ('+tl(odenen/100)+') satış tutarını ('+tl(s.total)+') tutmuyor');continue;}
+    var saatOk=typeof s.time==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(s.time);
+    sales.push({
+      sourceSaleId:sid,
+      sourceTime:saatOk?s.time:null,
+      status:'paid',
+      currency:'TRY',
+      totalMinor:totalMinor,
+      originalTotalMinor:(s.origTotal===undefined||s.origTotal===null)?null:kurus(s.origTotal),
+      items:items,
+      sourcePayment:{pay:s.pay,karmaNakit:nullVeyaSayi(s.karmaNakit),karmaPos:nullVeyaSayi(s.karmaPos),karmaIban:nullVeyaSayi(s.karmaIban),verilen:nullVeyaSayi(s.verilen),ust:nullVeyaSayi(s.ust),note:note},
+      payments:payments
+    });
+  }
+  // Sabit sıralama: vardiya saatine göre (07:00 → 06:59), sonra kimlik
+  sales.sort(function(a,b){var d=vardiyaDakika(a.sourceTime)-vardiyaDakika(b.sourceTime);if(d)return d;return a.sourceSaleId<b.sourceSaleId?-1:a.sourceSaleId>b.sourceSaleId?1:0;});
+  var payload={schemaVersion:1,sourceSystem:'sirdanci-adisyon',shopId:'ayten-abla',businessDate:dk,timeZone:'Europe/Istanbul',businessDayStartsAt:'07:00',snapshotKind:'full',generatedAt:new Date().toISOString(),sourceRead:{status:'server_confirmed',readAt:readAt},sales:sales};
+  if(!hatalar.length){
+    var boyut=new TextEncoder().encode(JSON.stringify(payload)).length;
+    if(boyut>2*1024*1024)hatalar.push('Veri 2 MB sınırını aşıyor ('+Math.round(boyut/1024)+' KB)');
+  }
+  return {payload:payload,hatalar:hatalar};
+}
+
+// Yalnız sunucuya bağlıyken, sunucudan güncel okuma (yerel yedek/önbellek kullanılmaz)
+function sunucudanOku(dk,cb){
+  if(!(fbOK&&db))return cb(null,'Firebase bağlantısı yok, aktarım yapılamaz.');
+  db.ref('.info/connected').once('value').then(function(c){
+    if(c.val()!==true)return cb(null,'İnternet bağlantısı yok. Bağlantı gelince tekrar deneyin.');
+    db.ref(fbPath('sales',dk)).get().then(function(snap){
+      cb({val:snap.val(),readAt:new Date().toISOString()});
+    }).catch(function(e){console.log('aktarim okuma',e);cb(null,'Satışlar sunucudan okunamadı.');});
+  }).catch(function(){cb(null,'Bağlantı durumu okunamadı.');});
+}
+
+function aktarDurum(msg,renk){var el=ge('aktar-durum');if(!el)return;el.textContent=msg;el.style.color=renk||'#555';}
+function aktarimBitir(){
+  if(!aktarim)return;
+  clearInterval(aktarim.izle);aktarim.bitti=true;
+  ge('btn-aktar').disabled=false;ge('btn-aktar-tekrar').style.display='none';
+}
+function aktarimHata(m){aktarDurum('✗ '+m,'#c0392b');aktarimBitir();}
+
+function finansaAktar(){
+  if(aktarim&&!aktarim.bitti){
+    if(aktarim.win&&!aktarim.win.closed){try{aktarim.win.focus();}catch(e){}aktarDurum('Aktarım sürüyor, finans penceresine bakın.');return;}
+    aktarimBitir();
+  }
+  var dk=viewDate;
+  if(dk===todayKey())showConfirm(fmtD(dk)+' vardiyası henüz bitmedi (07:00\'de kapanır). Şimdi aktarırsanız sonraki satışlar için yeniden aktarmanız gerekir. Devam edilsin mi?',function(){aktarimBaslat(dk);});
+  else aktarimBaslat(dk);
+}
+function aktarimBaslat(dk){
+  if(!(fbOK&&db)){aktarDurum('✗ Firebase bağlantısı yok, aktarım yapılamaz.','#c0392b');return;}
+  // noopener KULLANILMAZ: el sıkışma window.opener gerektirir
+  var w=window.open(FINANS_URL,'finans_'+Date.now());
+  if(!w){aktarDurum('✗ Açılır pencere engellendi. Tarayıcıda bu site için açılır pencerelere izin verin.','#c0392b');return;}
+  aktarim={win:w,dk:dk,nonce:null,nonceAt:0,payload:null,gonderildi:false,gonderimAt:0,ack:false,bitti:false,acilis:Date.now()};
+  ge('btn-aktar').disabled=true;ge('btn-aktar-tekrar').style.display='none';
+  aktarDurum(fmtD(dk)+' için finans penceresi açıldı. Gerekirse orada giriş yapın…');
+  aktarim.izle=setInterval(aktarimIzle,1000);
+}
+function aktarimIzle(){
+  var a=aktarim;if(!a||a.bitti)return;
+  if(a.win.closed){
+    if(!a.nonce&&Date.now()-a.acilis<3000)aktarimHata('Finans penceresiyle bağlantı kurulamadı (tarayıcı bağlantıyı engelledi).');
+    else aktarimHata('Finans penceresi kapatıldı.'+(a.gonderildi?' Onay (ACK) gelmediği için aktarım başarılı sayılmadı.':''));
+    return;
+  }
+  if(!a.nonce&&Date.now()-a.acilis>5*60000){aktarimHata('Finans penceresinden 5 dakika içinde yanıt gelmedi.');return;}
+  if(a.gonderildi&&!a.ack&&Date.now()-a.gonderimAt>15000){
+    ge('btn-aktar-tekrar').style.display=(Date.now()-a.nonceAt<NONCE_OMRU)?'inline-flex':'none';
+    if(Date.now()-a.nonceAt>=NONCE_OMRU)aktarimHata('Onay gelmedi ve süre doldu. "Finansa Aktar" düğmesine yeniden basın.');
+  }
+}
+function snapshotGonder(a){
+  if(Date.now()-a.nonceAt>=NONCE_OMRU){aktarimHata('Süre doldu. "Finansa Aktar" düğmesine yeniden basın.');return;}
+  try{
+    a.win.postMessage({type:'AYTEN_ADISYON_SNAPSHOT',schemaVersion:1,nonce:a.nonce,payload:a.payload},FINANS_ORIGIN);
+  }catch(e){console.log('postMessage',e);aktarimHata('Veri finans penceresine gönderilemedi.');return;}
+  a.gonderildi=true;a.gonderimAt=Date.now();
+  ge('btn-aktar-tekrar').style.display='none';
+  aktarDurum(a.payload.sales.length+' fiş gönderildi, finansın alındı onayı bekleniyor…');
+}
+// ACK kaybolduysa: nonce geçerliyken TAM AYNI payload yeniden gönderilir
+function aktarTekrarGonder(){
+  var a=aktarim;
+  if(!a||a.bitti||!a.payload||a.ack||!a.gonderildi)return;
+  snapshotGonder(a);
+}
+// Dinleyici pencere açılmadan önce kurulur
+window.addEventListener('message',function(e){
+  var a=aktarim;
+  if(e.origin!==FINANS_ORIGIN)return;
+  if(!a||a.bitti||e.source!==a.win)return;
+  var d=e.data;
+  if(!d||typeof d!=='object'||d.schemaVersion!==1||typeof d.nonce!=='string'||!d.nonce||d.nonce.length>512)return;
+  if(d.type==='AYTEN_ADISYON_READY'){
+    if(d.nonce===a.nonce)return;
+    var nonce=d.nonce;
+    a.nonce=nonce;a.nonceAt=Date.now();a.payload=null;a.gonderildi=false;a.ack=false;
+    ge('btn-aktar-tekrar').style.display='none';
+    aktarDurum('Bağlantı kuruldu. Satışlar sunucudan okunuyor…');
+    sunucudanOku(a.dk,function(r,hata){
+      if(aktarim!==a||a.bitti||a.nonce!==nonce)return;
+      if(hata){aktarimHata(hata);return;}
+      var p=aktarimPaketi(a.dk,r.val,r.readAt);
+      if(p.hatalar.length){aktarimHata('Aktarım yapılmadı. Önce düzeltilmesi gerekenler:\n• '+p.hatalar.slice(0,8).join('\n• ')+(p.hatalar.length>8?'\n… ve '+(p.hatalar.length-8)+' sorun daha':''));return;}
+      a.payload=p.payload;
+      snapshotGonder(a);
+    });
+  } else if(d.type==='AYTEN_ADISYON_ACK'){
+    if(d.nonce!==a.nonce||!a.gonderildi||d.status!=='pending_saved')return;
+    a.ack=true;
+    aktarDurum('✓ '+fmtD(a.dk)+' satışları ('+a.payload.sales.length+' fiş) finansa incelemeye gönderildi. Gelir onayı finans tarafında ayrıca yapılacak.','#1a7a4a');
+    aktarimBitir();
+  }
+},false);
+window.finansaAktar=finansaAktar;window.aktarTekrarGonder=aktarTekrarGonder;
+// ── /FİNANS AKTARIMI ──
 
 window.openManuel=openManuel;window.closeManuel=closeManuel;window.mSetPay=mSetPay;window.saveManuel=saveManuel;window.clearRevize=clearRevize;window.clearMRevize=clearMRevize;window.renderMRevizeFark=renderMRevizeFark;window.calcKarma=calcKarma;window.mCalcKarma=mCalcKarma;
 
