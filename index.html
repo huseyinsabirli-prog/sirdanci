@@ -263,6 +263,7 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <button class="sbtn g" id="btn-aktar" onclick="finansaAktar()" style="width:100%;-webkit-justify-content:center;justify-content:center;padding:12px">&#128228; Bu G&uuml;n&uuml; Finansa Aktar</button>
       <div id="aktar-durum" style="font-size:12px;margin-top:8px;line-height:1.5;color:#555;white-space:pre-line"></div>
       <button class="sbtn" id="btn-aktar-tekrar" onclick="aktarTekrarGonder()" style="display:none;margin-top:8px">&#8635; Ayn&#305; Veriyi Tekrar G&ouml;nder</button>
+      <div id="adisyon-surum" style="font-size:10px;color:#aaa;margin-top:8px"></div>
     </div>
     <div class="card">
       <div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;margin-bottom:8px">
@@ -1015,6 +1016,11 @@ function normalizeName(name){
   if(name==='Mimar Sinan')return 'Mimar Sinan (Tam)';
   return name;
 }
+// "iban", "IBAN", "İban", "İBAN", "ıban" yazımlarını tanır. JS'te "İ" küçültülünce "i̇" (i + nokta) olduğu için önce harfler sadeleştirilir.
+function notIbanMi(note){
+  var n=String(note||'').replace(/[İIı]/g,'i').replace(/̇/g,'').toLowerCase();
+  return n.indexOf('iban')>=0;
+}
 function calcNakPos(sales){
   var nak=0,pos=0,iban=0;
   for(var i=0;i<sales.length;i++){
@@ -1028,9 +1034,8 @@ function calcNakPos(sales){
     } else if(s.pay==='iban'){
       iban+=s.total;
     } else if(s.pay==='pos'){
-      // Eski kayıtlar: açıklamada iban/İban geçiyorsa iban olarak say
-      var note=(s.note||'').toLowerCase();
-      if(note.indexOf('iban')>=0){iban+=s.total;}
+      // Eski kayıtlar: açıklamada iban/IBAN/İban/İBAN geçiyorsa ekran özetinde iban olarak göster
+      if(notIbanMi(s.note)){iban+=s.total;}
       else{pos+=s.total;}
     }
   }
@@ -2030,10 +2035,13 @@ var FINANS_URL='https://ayten-abla-muhasebe.sirdanciaytenabla.chatgpt.site/#adis
 var FINANS_ORIGIN='https://ayten-abla-muhasebe.sirdanciaytenabla.chatgpt.site';
 var NONCE_OMRU=10*60*1000;
 var aktarim=null;
+// Yayındaki sürümü doğrulamak için; aktarım veya okuma mantığı her değiştiğinde artırılır
+var ADISYON_SURUM='2026.11.02-r2 (aktarım v1, REST sunucu okuması)';
+if(ge('adisyon-surum'))ge('adisyon-surum').textContent='Sürüm: '+ADISYON_SURUM;
 
 function kurus(v){return Math.round(Number(v)*100);}
 function sayiMi(v){return typeof v==='number'&&isFinite(v);}
-function eskiKayitMi(s){return typeof s.id==='number';} // UUID öncesi kayıtlar: Date.now() kimlikli
+function eskiKayitMi(s){return typeof s.id==='number';} // UUID ve ayrı İban düğmesi öncesi kayıtlar: Date.now() kimlikli
 function vardiyaDakika(t){if(!t)return 99999;var p=t.split(':');return((+p[0])*60+(+p[1])-420+1440)%1440;}
 
 // Kaynak ödeme alanlarından payments[] üretir. Belirsiz eski kayıtlar "unresolved" gider (finans çözmeden onaylanmaz).
@@ -2042,8 +2050,8 @@ function satisOdemeleri(s,hatalar,no){
   if(s.pay==='nakit')out.push({method:'cash',amountMinor:T});
   else if(s.pay==='iban')out.push({method:'bank_transfer',amountMinor:T});
   else if(s.pay==='pos'){
-    var ibanNot=String(s.note||'').toLowerCase().indexOf('iban')>=0;
-    out.push({method:(eskiKayitMi(s)&&ibanNot)?'unresolved':'card',amountMinor:T});
+    // Eski kayıtlarda düğme "POS / İban" idi: notta İban yazsa da yazmasa da kart mı havale mi belli değil
+    out.push({method:eskiKayitMi(s)?'unresolved':'card',amountMinor:T});
   }
   else if(s.pay==='karma'){
     var n=kurus(s.karmaNakit||0),c=kurus(s.karmaPos||0),b=kurus(s.karmaIban||0);
@@ -2114,15 +2122,37 @@ function aktarimPaketi(dk,ham,readAt){
   return {payload:payload,hatalar:hatalar};
 }
 
-// Yalnız sunucuya bağlıyken, sunucudan güncel okuma (yerel yedek/önbellek kullanılmaz)
+// Güncel sunucu okuması. SDK'nın get()/once() çağrıları yerel önbellekten dönebildiği için kullanılmaz;
+// Firebase REST uç noktası her istekte sunucuya gider ve hiçbir şey yazmaz. Yanıt alınamazsa aktarım durur.
 function sunucudanOku(dk,cb){
-  if(!(fbOK&&db))return cb(null,'Firebase bağlantısı yok, aktarım yapılamaz.');
-  db.ref('.info/connected').once('value').then(function(c){
-    if(c.val()!==true)return cb(null,'İnternet bağlantısı yok. Bağlantı gelince tekrar deneyin.');
-    db.ref(fbPath('sales',dk)).get().then(function(snap){
-      cb({val:snap.val(),readAt:new Date().toISOString()});
-    }).catch(function(e){console.log('aktarim okuma',e);cb(null,'Satışlar sunucudan okunamadı.');});
-  }).catch(function(){cb(null,'Bağlantı durumu okunamadı.');});
+  if(!(fbOK&&auth&&auth.currentUser))return cb(null,'Oturum yok, aktarım yapılamaz.');
+  if(!window.fetch)return cb(null,'Bu tarayıcı sunucudan doğrulanmış okumayı desteklemiyor.');
+  var bitti=false;
+  var sure=setTimeout(function(){if(bitti)return;bitti=true;cb(null,'Sunucu 20 saniyede yanıt vermedi. Aktarım yapılmadı; bağlantınızı kontrol edip tekrar deneyin.');},20000);
+  auth.currentUser.getIdToken(true).then(function(token){
+    var url=FIREBASE_CONFIG.databaseURL+'/'+fbPath('sales',dk)+'.json?auth='+encodeURIComponent(token);
+    return fetch(url,{cache:'no-store',credentials:'omit'});
+  }).then(function(res){
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    return res.json();
+  }).then(function(val){
+    if(bitti)return;bitti=true;clearTimeout(sure);
+    cb({val:val,readAt:new Date().toISOString()});
+  }).catch(function(e){
+    if(bitti)return;bitti=true;clearTimeout(sure);
+    console.log('aktarim okuma',e);
+    cb(null,'Satışlar sunucudan doğrulanarak okunamadı ('+(e&&e.message||'hata')+'). Aktarım yapılmadı.');
+  });
+}
+// Gönderilen paketin ödeme türü toplamları (finans tarafıyla karşılaştırmak için)
+function paketToplamlari(p){
+  var t={cash:0,card:0,bank_transfer:0,unresolved:0,genel:0};
+  for(var i=0;i<p.sales.length;i++){t.genel+=p.sales[i].totalMinor;for(var j=0;j<p.sales[i].payments.length;j++){var x=p.sales[i].payments[j];t[x.method]+=x.amountMinor;}}
+  return t;
+}
+function toplamMetni(p){
+  var t=paketToplamlari(p),f=function(v){return tl(v/100);};
+  return 'Nakit: '+f(t.cash)+' · Kart: '+f(t.card)+' · Havale/İban: '+f(t.bank_transfer)+(t.unresolved?' · Belirsiz (finans çözecek): '+f(t.unresolved):'')+'\nGenel toplam: '+f(t.genel);
 }
 
 function aktarDurum(msg,renk){var el=ge('aktar-durum');if(!el)return;el.textContent=msg;el.style.color=renk||'#555';}
@@ -2204,7 +2234,7 @@ window.addEventListener('message',function(e){
   } else if(d.type==='AYTEN_ADISYON_ACK'){
     if(d.nonce!==a.nonce||!a.gonderildi||d.status!=='pending_saved')return;
     a.ack=true;
-    aktarDurum('✓ '+fmtD(a.dk)+' satışları ('+a.payload.sales.length+' fiş) finansa incelemeye gönderildi. Gelir onayı finans tarafında ayrıca yapılacak.','#1a7a4a');
+    aktarDurum('✓ '+fmtD(a.dk)+' satışları ('+a.payload.sales.length+' fiş) finansa incelemeye gönderildi. Gelir onayı finans tarafında ayrıca yapılacak.\n'+toplamMetni(a.payload),'#1a7a4a');
     aktarimBitir();
   }
 },false);
