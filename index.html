@@ -1373,6 +1373,23 @@ function toggleMenuHide(id){
   });
 }
 window.toggleMenuHide=toggleMenuHide;
+function saveMenuPrices(){
+  var degisen=0;
+  for(var i=0;i<MENU.length;i++){
+    var inp=ge('mp-'+MENU[i].id);
+    if(!inp)continue;
+    var p=parseFloat(inp.value);
+    if(isNaN(p)||p<0){showToast(MENU[i].label+' için geçerli fiyat girin');return;}
+    if(p!==MENU[i].price){MENU[i].price=p;degisen++;}
+  }
+  saveMenuToFirebase(function(){
+    buildMenu();buildMManuelGrid();renderBasket();
+    if(typeof renderMBasket==='function')renderMBasket();
+    buildMenuYonetim();
+    showToast(degisen?'Fiyatlar kaydedildi ✓':'Değişiklik yok');
+  });
+}
+window.saveMenuPrices=saveMenuPrices;
 
 function loadMenuPrices(){
   if(!fbOK||!db)return;
@@ -1397,7 +1414,7 @@ function loadMenuPrices(){
       } else {
         // Dinamik eklenen ürün — MENU'ye ekle (duplicate kontrolü)
         var exists=false;for(var i=0;i<MENU.length;i++){if(MENU[i].id===id){exists=true;break;}}
-        if(!exists)MENU.push({id:item.id,label:item.label,name:item.name,price:item.price,cat:item.cat||'ana'});
+        if(!exists)MENU.push({id:item.id,label:item.label,name:item.name,price:item.price,cat:item.cat||'ana',hidden:item.hidden||false});
       }
     }
     buildMenu();buildMManuelGrid();
