@@ -684,9 +684,12 @@ function fbSet(type, dk, data, cb){
     // Array'i object'e çevir {0:..., 1:..., 2:...} şeklinde sakla
     var obj={};
     for(var i=0;i<data.length;i++) obj[i]=data[i];
-    db.ref(fbPath(type,dk)).set(obj).then(function(){setSyncBadge('ok');if(cb)cb();}).catch(function(e){setSyncBadge('err');fallbackSet(type,dk,data);if(cb)cb();});
+    // Sunucu onaylamadan başarı bildirme; yerel yedeğe düşme
+    var bitti=false;
+    var uyari=setTimeout(function(){if(!bitti){setSyncBadge('err');showToast('Bağlantı bekleniyor, sayfayı kapatmayın');}},10000);
+    db.ref(fbPath(type,dk)).set(obj).then(function(){bitti=true;clearTimeout(uyari);setSyncBadge('ok');if(cb)cb(null);}).catch(function(e){bitti=true;clearTimeout(uyari);console.log('fbSet err',e);setSyncBadge('err');showToast('Kaydedilemedi! İnternet bağlantısını kontrol edin');if(cb)cb(e||new Error('fbSet'));});
   } else {
-    fallbackSet(type,dk,data);if(cb)cb();
+    fallbackSet(type,dk,data);if(cb)cb(null);
   }
 }
 function toArr(val){
@@ -702,7 +705,7 @@ function fbGet(type, dk, cb){
   if(fbOK && db){
     db.ref(fbPath(type,dk)).once('value').then(function(snap){
       cb(toArr(snap.val()));
-    }).catch(function(e){console.log('fbGet err',e);cb(fallbackGet(type,dk));});
+    }).catch(function(e){console.log('fbGet err',e);setSyncBadge('err');showToast('Sunucudan okunamadı');cb(null,e||new Error('fbGet'));});
   } else {
     cb(fallbackGet(type,dk));
   }
@@ -874,22 +877,34 @@ function calcUst(){
 }
 
 // ── KAYDET ──
+// Karma ödemede nakit + POS toplamı satış tutarına kuruşu kuruşuna eşit olmalı
+function karmaTamMi(n,p,total){
+  if(n<0||p<0){showToast('Karma tutarlar negatif olamaz');return false;}
+  var fark=Math.round(total*100)-Math.round((n+p)*100);
+  if(fark!==0){showToast('Karma toplamı '+tl(total)+' olmalı ('+(fark>0?'eksik ':'fazla ')+tl(Math.abs(fark)/100)+')');return false;}
+  return true;
+}
 function saveSale(){
   var keys=Object.keys(basket);if(!keys.length)return;
-  ge('savebtn').disabled=true;
   var origTotal=getTotal(), finalTotal=getFinalTotal(), items=[],now=new Date();
+  var karmaNakit=0,karmaPos=0;
+  if(payType==='karma'){
+    karmaNakit=parseFloat(ge('karma-nakit').value)||0;karmaPos=parseFloat(ge('karma-pos').value)||0;
+    if(!karmaTamMi(karmaNakit,karmaPos,finalTotal))return;
+  }
+  ge('savebtn').disabled=true;
   for(var i=0;i<keys.length;i++){var m=findM(keys[i]);items.push({id:keys[i],name:m.name,qty:basket[keys[i]],price:m.price});}
   var ver=payType==='nakit'?(parseFloat(ge('vpara').value)||0):0;
-  var karmaNakit=0,karmaPos=0;
-  if(payType==='karma'){karmaNakit=parseFloat(ge('karma-nakit').value)||0;karmaPos=parseFloat(ge('karma-pos').value)||0;}
   var note=ge('anot').value.trim();
   var revizeNot=(origTotal!==finalTotal)?' [Revize: '+origTotal.toLocaleString('tr-TR')+'\u20ba \u2192 '+finalTotal.toLocaleString('tr-TR')+'\u20ba]':'';
   var karmaНot=payType==='karma'?' [Nakit: '+karmaNakit.toLocaleString('tr-TR')+'\u20ba + POS: '+karmaPos.toLocaleString('tr-TR')+'\u20ba]':'';
   var sale={id:now.getTime(),time:pad(now.getHours())+':'+pad(now.getMinutes()),hour:now.getHours(),items:items,total:finalTotal,origTotal:origTotal!==finalTotal?origTotal:null,pay:payType,karmaNakit:payType==='karma'?karmaNakit:null,karmaPos:payType==='karma'?karmaPos:null,verilen:ver||null,ust:ver?ver-finalTotal:null,note:note+revizeNot+karmaНot};
   var dk=todayKey();
-  getSales(dk,function(arr){
+  getSales(dk,function(arr,err){
+    if(err){ge('savebtn').disabled=false;return;}
     arr=arr||[];arr.push(sale);
-    saveSalesF(dk,arr,function(){
+    saveSalesF(dk,arr,function(err2){
+      if(err2){ge('savebtn').disabled=false;return;}
       basket={};ge('vpara').value='';ge('anot').value='';ge('ustbox').style.display='none';
       if(ge('revize-tutar'))ge('revize-tutar').value='';
       if(ge('revize-blok'))ge('revize-blok').style.display='none';
@@ -913,13 +928,13 @@ function renderSatis(){
       ge('sat-ozet').style.display='block';
       ge('sat-oz-top').textContent=tl(top);
       ge('sat-oz-nak').textContent=tl(np.nak);
-      ge('sat-oz-pos').textContent=tl(np.pos);
+      ge('sat-oz-pos').textContent=tl(np.pos+np.iban);
     } else {
       ge('sat-ozet').style.display='none';
     }
     if(!arr||!arr.length){el.innerHTML='<div class="empty">Bu vardiya i\xe7in sat\u0131\u015f kayd\u0131 yok</div>';return;}
     var rev=arr.slice().reverse(),html='',ids=[];
-    for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=(s.ust!==null&&s.ust!==undefined&&!isNaN(s.ust))?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';var payBadge=s.pay==='karma'?'<span class="badge" style="background:#e8f0fe;color:#185fa5">Karma</span>':s.pay==='iban'?'<span class="badge" style="background:#f0e8fe;color:#6a1a9a">0130ban</span>':s.pay==='nakit'?'<span class="badge bn">Nakit</span>':'<span class="badge bp">POS</span>';ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta">'+payBadge+'<span class="stime">'+s.time+'</span><button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
+    for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=(s.ust!==null&&s.ust!==undefined&&!isNaN(s.ust))?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';var payBadge=s.pay==='karma'?'<span class="badge" style="background:#e8f0fe;color:#185fa5">Karma</span>':s.pay==='iban'?'<span class="badge" style="background:#f0e8fe;color:#6a1a9a">İban</span>':s.pay==='nakit'?'<span class="badge bn">Nakit</span>':'<span class="badge bp">POS</span>';ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta">'+payBadge+'<span class="stime">'+s.time+'</span><button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
     el.innerHTML=html;
     for(var i=0;i<ids.length;i++){(function(sid){var b=ge('ds-'+sid);if(!b)return;b.addEventListener('touchend',function(e){e.preventDefault();delSale(sid);},false);b.addEventListener('click',function(e){e.preventDefault();delSale(sid);},false);})(ids[i]);}
   });
@@ -943,9 +958,10 @@ window.confirmYes=confirmYes; window.confirmNo=confirmNo;
 
 function delSale(id){
   showConfirm('Bu satış kaydı silinecek, geri alınamaz.', function(){
-    getSales(viewDate,function(arr){
+    getSales(viewDate,function(arr,err){
+      if(err)return;
       arr=(arr||[]).filter(function(s){return s.id!==id;});
-      saveSalesF(viewDate,arr,function(){renderSatis();renderKasa();updateHeader();});
+      saveSalesF(viewDate,arr,function(err2){if(err2)return;renderSatis();renderKasa();updateHeader();});
     });
   });
 }
@@ -977,10 +993,10 @@ function calcNakPos(sales){
   }
   return {nak:nak,pos:pos,iban:iban};
 }
-function addGelir(){var ac=ge('gel-ac').value.trim(),tu=parseFloat(ge('gel-tu').value);if(!ac||!tu||tu<=0)return;getGelirs(viewDate,function(arr){arr=arr||[];arr.push({id:Date.now(),aciklama:ac,tutar:tu});saveGelirs(viewDate,arr,function(){ge('gel-ac').value='';ge('gel-tu').value='';renderKasa();showToast('Ek gelir eklendi \u2713');});});}
-function addGider(){var ac=ge('gid-ac').value.trim(),tu=parseFloat(ge('gid-tu').value);if(!ac||!tu||tu<=0)return;getGiders(viewDate,function(arr){arr=arr||[];arr.push({id:Date.now(),aciklama:ac,tutar:tu});saveGiders(viewDate,arr,function(){ge('gid-ac').value='';ge('gid-tu').value='';renderKasa();showToast('Gider eklendi \u2713');});});}
-function delGelir(id){showConfirm('Bu ek gelir kaydı silinecek.',function(){getGelirs(viewDate,function(arr){arr=(arr||[]).filter(function(g){return g.id!==id;});saveGelirs(viewDate,arr,function(){renderKasa();});});});}
-function delGider(id){showConfirm('Bu gider kaydı silinecek.',function(){getGiders(viewDate,function(arr){arr=(arr||[]).filter(function(g){return g.id!==id;});saveGiders(viewDate,arr,function(){renderKasa();});});});}
+function addGelir(){var ac=ge('gel-ac').value.trim(),tu=parseFloat(ge('gel-tu').value);if(!ac||!tu||tu<=0)return;getGelirs(viewDate,function(arr,err){if(err)return;arr=arr||[];arr.push({id:Date.now(),aciklama:ac,tutar:tu});saveGelirs(viewDate,arr,function(err2){if(err2)return;ge('gel-ac').value='';ge('gel-tu').value='';renderKasa();showToast('Ek gelir eklendi \u2713');});});}
+function addGider(){var ac=ge('gid-ac').value.trim(),tu=parseFloat(ge('gid-tu').value);if(!ac||!tu||tu<=0)return;getGiders(viewDate,function(arr,err){if(err)return;arr=arr||[];arr.push({id:Date.now(),aciklama:ac,tutar:tu});saveGiders(viewDate,arr,function(err2){if(err2)return;ge('gid-ac').value='';ge('gid-tu').value='';renderKasa();showToast('Gider eklendi \u2713');});});}
+function delGelir(id){showConfirm('Bu ek gelir kaydı silinecek.',function(){getGelirs(viewDate,function(arr,err){if(err)return;arr=(arr||[]).filter(function(g){return g.id!==id;});saveGelirs(viewDate,arr,function(err2){if(err2)return;renderKasa();});});});}
+function delGider(id){showConfirm('Bu gider kaydı silinecek.',function(){getGiders(viewDate,function(arr,err){if(err)return;arr=(arr||[]).filter(function(g){return g.id!==id;});saveGiders(viewDate,arr,function(err2){if(err2)return;renderKasa();});});});}
 
 function renderKasa(){
   ge('kas-dlbl').textContent=fmtD(viewDate);
@@ -988,7 +1004,7 @@ function renderKasa(){
     getGelirs(viewDate,function(gelirs){
       getGiders(viewDate,function(giders){
         sales=sales||[];gelirs=gelirs||[];giders=giders||[];
-        var np=calcNakPos(sales),nak=np.nak,pos=np.pos;
+        var np=calcNakPos(sales),nak=np.nak,pos=np.pos+np.iban;
         var gelT=0;for(var i=0;i<gelirs.length;i++)gelT+=gelirs[i].tutar;
         var gidT=0;for(var i=0;i<giders.length;i++)gidT+=giders[i].tutar;
         ge('k-nak').textContent=tl(nak);ge('k-pos').textContent=tl(pos);ge('k-gel').textContent=tl(gelT);ge('k-gid').textContent=tl(gidT);
@@ -1767,6 +1783,7 @@ function setupBtns(){
   if(gd){gd.addEventListener('touchend',function(e){e.preventDefault();addGider();},false);gd.addEventListener('click',function(e){e.preventDefault();addGider();},false);}
 }
 
+function odemeAdi(p){return p==='nakit'?'Nakit':p==='karma'?'Karma':p==='iban'?'İban':'POS';}
 function exportCSV(){
   getSales(viewDate,function(sales){
     getGelirs(viewDate,function(gelirs){
@@ -1774,8 +1791,8 @@ function exportCSV(){
         sales=sales||[];gelirs=gelirs||[];giders=giders||[];
         var rows=[['Sirdanci Ayten Abla - '+fmtD(viewDate)],[]];
         rows.push(['=== SATISLAR ==='],['Saat','Urunler','Tutar','Odeme','Not']);
-        for(var i=0;i<sales.length;i++){var s=sales[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'x ';desc+=s.items[j].name;}rows.push([s.time,desc,s.total,s.pay==='nakit'?'Nakit':'POS',s.note||'']);}
-        var np=calcNakPos(sales),nak=np.nak,pos=np.pos;
+        for(var i=0;i<sales.length;i++){var s=sales[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'x ';desc+=s.items[j].name;}rows.push([s.time,desc,s.total,odemeAdi(s.pay),s.note||'']);}
+        var np=calcNakPos(sales),nak=np.nak,pos=np.pos+np.iban;
         var gelT=0;for(var i=0;i<gelirs.length;i++)gelT+=gelirs[i].tutar;
         var gidT=0;for(var i=0;i<giders.length;i++)gidT+=giders[i].tutar;
         rows.push([],['=== KASA ==='],['Nakit',nak],['POS',pos],['Ek Gelir',gelT],['Gider',gidT],['Net Ciro',nak+pos+gelT-gidT]);
@@ -1793,12 +1810,12 @@ function exportPDF(){
     getGelirs(viewDate,function(gelirs){
       getGiders(viewDate,function(giders){
         sales=sales||[];gelirs=gelirs||[];giders=giders||[];
-        var np=calcNakPos(sales),nak=np.nak,pos=np.pos;
+        var np=calcNakPos(sales),nak=np.nak,pos=np.pos+np.iban;
         var gelT=0;for(var i=0;i<gelirs.length;i++)gelT+=gelirs[i].tutar;
         var gidT=0;for(var i=0;i<giders.length;i++)gidT+=giders[i].tutar;
         var net=nak+pos+gelT-gidT,um={};
         for(var i=0;i<sales.length;i++)for(var j=0;j<sales[i].items.length;j++){var it=sales[i].items[j];if(!um[normalizeName(it.name)])um[normalizeName(it.name)]={qty:0,total:0};um[normalizeName(it.name)].qty+=it.qty;um[normalizeName(it.name)].total+=it.price*it.qty;}
-        var rows='';for(var i=0;i<sales.length;i++){var s=sales[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}rows+='<tr><td>'+s.time+'</td><td>'+desc+(s.note?' ('+s.note+')':'')+'</td><td align="right"><b>'+s.total.toLocaleString('tr-TR')+'\u20ba</b></td><td>'+(s.pay==='nakit'?'Nakit':'POS')+'</td></tr>';}
+        var rows='';for(var i=0;i<sales.length;i++){var s=sales[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}rows+='<tr><td>'+s.time+'</td><td>'+desc+(s.note?' ('+s.note+')':'')+'</td><td align="right"><b>'+s.total.toLocaleString('tr-TR')+'\u20ba</b></td><td>'+odemeAdi(s.pay)+'</td></tr>';}
         var ua=[];for(var k in um)ua.push([k,um[k]]);ua.sort(function(a,b){return b[1].total-a[1].total;});
         var urows='';for(var i=0;i<ua.length;i++)urows+='<tr><td>'+ua[i][0]+'</td><td>'+ua[i][1].qty+'</td><td align="right"><b>'+ua[i][1].total.toLocaleString('tr-TR')+'\u20ba</b></td></tr>';
         var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Rapor '+fmtD(viewDate)+'</title><style>body{font-family:Arial,sans-serif;font-size:13px;padding:20px;max-width:600px;margin:0 auto}h1{font-size:16px;color:#1a4a2e}h2{font-size:11px;font-weight:700;text-transform:uppercase;color:#1a4a2e;border-bottom:2px solid #1a4a2e;padding-bottom:3px;margin:14px 0 7px}table{width:100%;border-collapse:collapse;margin-bottom:8px}th{background:#1a4a2e;color:#fff;padding:5px 7px;font-size:11px;text-align:left}td{padding:4px 7px;border-bottom:1px solid #eee;font-size:11px}.net{background:#1a4a2e;color:#fff;padding:10px 14px;border-radius:7px;text-align:right;font-size:16px;font-weight:800;margin-top:10px}</style></head><body>';
@@ -1954,13 +1971,15 @@ function saveManuel(){
   for(var i=0;i<keys.length;i++){var m=findM(keys[i]);items.push({id:keys[i],name:m.name,qty:mBasket[keys[i]],price:m.price});}
   var hour=parseInt(saat.split(':')[0])||0;
   var karmaNakit2=0,karmaPos2=0;
-  if(mPayType==='karma'){karmaNakit2=parseFloat(ge('m-karma-nakit').value)||0;karmaPos2=parseFloat(ge('m-karma-pos').value)||0;}
+  if(mPayType==='karma'){karmaNakit2=parseFloat(ge('m-karma-nakit').value)||0;karmaPos2=parseFloat(ge('m-karma-pos').value)||0;if(!karmaTamMi(karmaNakit2,karmaPos2,finalTotal))return;}
   var karmaNotM=mPayType==='karma'?' [Nakit: '+karmaNakit2.toLocaleString('tr-TR')+'\u20ba + POS: '+karmaPos2.toLocaleString('tr-TR')+'\u20ba]':'';
   var revizeNotM=(origTotal!==finalTotal)?' [Revize: '+origTotal.toLocaleString('tr-TR')+'\u20ba \u2192 '+finalTotal.toLocaleString('tr-TR')+'\u20ba]':'';
   var sale={id:Date.now(),time:saat,hour:hour,items:items,total:finalTotal,origTotal:origTotal!==finalTotal?origTotal:null,pay:mPayType,karmaNakit:mPayType==='karma'?karmaNakit2:null,karmaPos:mPayType==='karma'?karmaPos2:null,verilen:null,ust:null,note:not+(not?', ':'')+'\u{1F4DD}Manuel'+revizeNotM+karmaNotM};
-  getSales(tarih,function(arr){
+  getSales(tarih,function(arr,err){
+    if(err)return;
     arr=arr||[];arr.push(sale);
-    saveSalesF(tarih,arr,function(){
+    saveSalesF(tarih,arr,function(err2){
+      if(err2)return;
       closeManuel();
       // Eğer aynı gündeyse listeyi yenile
       if(tarih===viewDate)renderSatis();
