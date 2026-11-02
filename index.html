@@ -201,7 +201,8 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <div class="lbl" style="margin-top:10px">Odeme Sekli</div>
       <div class="prow">
         <button class="pb on" id="pb-nak" onclick="setPay('nakit')">&#128181; Nakit</button>
-        <button class="pb" id="pb-pos" onclick="setPay('pos')">&#128179; POS / İban</button>
+        <button class="pb" id="pb-pos" onclick="setPay('pos')">&#128179; POS</button>
+        <button class="pb" id="pb-iban" onclick="setPay('iban')">&#127974; İban</button>
         <button class="pb" id="pb-karma" onclick="setPay('karma')">&#9654; Karma</button>
       </div>
       <div id="nakit-blok">
@@ -220,6 +221,10 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
         <div style="display:-webkit-flex;display:flex;gap:8px;-webkit-align-items:center;align-items:center;margin-bottom:6px">
           <span style="font-size:12px;min-width:44px;color:#555">POS:</span>
           <input class="inp" id="karma-pos" type="number" inputmode="decimal" placeholder="0 ₺" style="margin:0;-webkit-flex:1;flex:1;padding:9px 10px;font-size:14px" oninput="calcKarma()">
+        </div>
+        <div style="display:-webkit-flex;display:flex;gap:8px;-webkit-align-items:center;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;min-width:44px;color:#555">İban:</span>
+          <input class="inp" id="karma-iban" type="number" inputmode="decimal" placeholder="0 ₺" style="margin:0;-webkit-flex:1;flex:1;padding:9px 10px;font-size:14px" oninput="calcKarma()">
         </div>
         <div id="karma-durum" style="font-size:12px;color:#185fa5;margin-top:4px"></div>
       </div>
@@ -325,7 +330,8 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <div class="lbl">Ödeme Şekli</div>
       <div class="prow" style="margin-bottom:10px">
         <button class="pb on" id="m-pb-nak" onclick="mSetPay('nakit')">&#128181; Nakit</button>
-        <button class="pb" id="m-pb-pos" onclick="mSetPay('pos')">&#128179; POS / İban</button>
+        <button class="pb" id="m-pb-pos" onclick="mSetPay('pos')">&#128179; POS</button>
+        <button class="pb" id="m-pb-iban" onclick="mSetPay('iban')">&#127974; İban</button>
         <button class="pb" id="m-pb-karma" onclick="mSetPay('karma')">&#9654; Karma</button>
       </div>
       <div id="m-karma-blok" style="display:none;background:#f0f7ff;border:2px solid #b0d0f0;border-radius:9px;padding:10px 12px;margin-bottom:8px">
@@ -337,6 +343,10 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
         <div style="display:-webkit-flex;display:flex;gap:8px;-webkit-align-items:center;align-items:center;margin-bottom:6px">
           <span style="font-size:12px;min-width:44px;color:#555">POS:</span>
           <input class="inp" id="m-karma-pos" type="number" inputmode="decimal" placeholder="0 ₺" style="margin:0;-webkit-flex:1;flex:1;padding:9px 10px;font-size:14px" oninput="mCalcKarma()">
+        </div>
+        <div style="display:-webkit-flex;display:flex;gap:8px;-webkit-align-items:center;align-items:center;margin-bottom:6px">
+          <span style="font-size:12px;min-width:44px;color:#555">İban:</span>
+          <input class="inp" id="m-karma-iban" type="number" inputmode="decimal" placeholder="0 ₺" style="margin:0;-webkit-flex:1;flex:1;padding:9px 10px;font-size:14px" oninput="mCalcKarma()">
         </div>
         <div id="m-karma-durum" style="font-size:12px;color:#185fa5;margin-top:4px"></div>
       </div>
@@ -669,7 +679,17 @@ var MENU=[
 var basket={},payType='nakit',viewDate=todayKey();
 var localCache = {}; // Firebase yokken fallback
 
-function todayKey(){var d=new Date();if(d.getHours()<7){d.setDate(d.getDate()-1);}var y=d.getFullYear(),m=d.getMonth()+1,dd=d.getDate();return y+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;}
+// İstanbul saati (UTC+3, yaz saati yok) — telefonun saat dilimi farklı olsa da vardiya doğru hesaplansın. getUTC* ile okunur.
+function istNow(){return new Date(Date.now()+3*3600000);}
+// Vardiya 07:00'de başlar; 07:00'den önceki satışlar önceki güne yazılır
+function todayKey(){var d=istNow();if(d.getUTCHours()<7){d=new Date(d.getTime()-86400000);}var y=d.getUTCFullYear(),m=d.getUTCMonth()+1,dd=d.getUTCDate();return y+'-'+(m<10?'0':'')+m+'-'+(dd<10?'0':'')+dd;}
+// Yeni satışlar için kalıcı kimlik (UUID). Eski satışların Date.now() kimlikleri olduğu gibi kalır.
+function yeniId(){
+  if(window.crypto&&crypto.randomUUID)return crypto.randomUUID();
+  var b=new Uint8Array(16);crypto.getRandomValues(b);b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;
+  var h='';for(var i=0;i<16;i++){h+=(b[i]<16?'0':'')+b[i].toString(16);if(i===3||i===5||i===7||i===9)h+='-';}
+  return h;
+}
 function fmtD(k){if(!k)return'';var p=k.split('-');return p[2]+'.'+p[1]+'.'+p[0];}
 function tl(n){return(+n).toLocaleString('tr-TR')+' \u20ba';}
 function ge(id){return document.getElementById(id);}
@@ -691,6 +711,23 @@ function fbSet(type, dk, data, cb){
   } else {
     fallbackSet(type,dk,data);if(cb)cb(null);
   }
+}
+// Listeyi sunucudaki güncel hâli üzerinden atomik değiştir (transaction).
+// İki cihaz aynı anda yazsa da biri diğerinin kaydını ezmez. fn: eski dizi -> yeni dizi (saf olmalı, birkaç kez çağrılabilir)
+function fbUpdateList(type, dk, fn, cb){
+  if(!(fbOK && db)){var a=fn(fallbackGet(type,dk));fallbackSet(type,dk,a);if(cb)cb(null);return;}
+  var bitti=false;
+  var uyari=setTimeout(function(){if(!bitti){setSyncBadge('err');showToast('Bağlantı bekleniyor, sayfayı kapatmayın');}},10000);
+  db.ref(fbPath(type,dk)).transaction(function(cur){
+    var arr=fn(toArr(cur));
+    if(!arr.length)return null;
+    var obj={};for(var i=0;i<arr.length;i++)obj[i]=arr[i];
+    return obj;
+  },undefined,false).then(function(res){
+    bitti=true;clearTimeout(uyari);
+    if(!res||!res.committed){setSyncBadge('err');showToast('Kaydedilemedi! Tekrar deneyin');if(cb)cb(new Error('not committed'));return;}
+    setSyncBadge('ok');if(cb)cb(null);
+  }).catch(function(e){bitti=true;clearTimeout(uyari);console.log('fbUpdateList err',e);setSyncBadge('err');showToast('Kaydedilemedi! İnternet bağlantısını kontrol edin');if(cb)cb(e||new Error('fbUpdateList'));});
 }
 function toArr(val){
   if(!val) return [];
@@ -847,21 +884,29 @@ function setPay(t){
   payType=t;
   ge('pb-nak').className='pb'+(t==='nakit'?' on':'');
   ge('pb-pos').className='pb'+(t==='pos'?' on':'');
+  ge('pb-iban').className='pb'+(t==='iban'?' on':'');
   ge('pb-karma').className='pb'+(t==='karma'?' on':'');
   ge('nakit-blok').style.display=t==='nakit'?'block':'none';
   ge('karma-blok').style.display=t==='karma'?'block':'none';
   if(t!=='nakit')ge('ustbox').style.display='none';
-  if(t==='karma'){if(ge('karma-nakit'))ge('karma-nakit').value='';if(ge('karma-pos'))ge('karma-pos').value='';if(ge('karma-durum'))ge('karma-durum').textContent='';}
+  if(t==='karma'){if(ge('karma-nakit'))ge('karma-nakit').value='';if(ge('karma-pos'))ge('karma-pos').value='';if(ge('karma-iban'))ge('karma-iban').value='';if(ge('karma-durum'))ge('karma-durum').textContent='';}
 }
-function calcKarma(){
-  var total=getFinalTotal();
-  var n=parseFloat(ge('karma-nakit').value)||0;
-  var p=parseFloat(ge('karma-pos').value)||0;
-  var kalan=total-n-p;
-  var el=ge('karma-durum');
+// Karma kutusundaki "eksik/fazla" yaz\u0131s\u0131 (normal ve manuel sat\u0131\u015f ortak)
+function karmaDurumYaz(el,total,n,p,ib){
+  var kalan=(Math.round(total*100)-Math.round((n+p+ib)*100))/100;
   if(kalan===0){el.textContent='\u2713 Tam tutar karsilandi';el.style.color='#1a7a4a';}
   else if(kalan>0){el.textContent='Eksik: '+kalan.toLocaleString('tr-TR')+' \u20ba';el.style.color='#c0392b';}
   else{el.textContent='Fazla: '+Math.abs(kalan).toLocaleString('tr-TR')+' \u20ba';el.style.color='#b87a10';}
+}
+function karmaNotu(n,p,ib){
+  var parca=[];
+  if(n)parca.push('Nakit: '+n.toLocaleString('tr-TR')+'\u20ba');
+  if(p)parca.push('POS: '+p.toLocaleString('tr-TR')+'\u20ba');
+  if(ib)parca.push('\u0130ban: '+ib.toLocaleString('tr-TR')+'\u20ba');
+  return ' ['+parca.join(' + ')+']';
+}
+function calcKarma(){
+  karmaDurumYaz(ge('karma-durum'),getFinalTotal(),parseFloat(ge('karma-nakit').value)||0,parseFloat(ge('karma-pos').value)||0,parseFloat(ge('karma-iban').value)||0);
 }
 function calcUst(){
   if(payType!=='nakit')return;
@@ -877,43 +922,37 @@ function calcUst(){
 }
 
 // ── KAYDET ──
-// Karma ödemede nakit + POS toplamı satış tutarına kuruşu kuruşuna eşit olmalı
-function karmaTamMi(n,p,total){
-  if(n<0||p<0){showToast('Karma tutarlar negatif olamaz');return false;}
-  var fark=Math.round(total*100)-Math.round((n+p)*100);
+// Karma ödemede nakit + POS + İban toplamı satış tutarına kuruşu kuruşuna eşit olmalı
+function karmaTamMi(n,p,ib,total){
+  if(n<0||p<0||ib<0){showToast('Karma tutarlar negatif olamaz');return false;}
+  var fark=Math.round(total*100)-Math.round((n+p+ib)*100);
   if(fark!==0){showToast('Karma toplamı '+tl(total)+' olmalı ('+(fark>0?'eksik ':'fazla ')+tl(Math.abs(fark)/100)+')');return false;}
   return true;
 }
 function saveSale(){
   var keys=Object.keys(basket);if(!keys.length)return;
-  var origTotal=getTotal(), finalTotal=getFinalTotal(), items=[],now=new Date();
-  var karmaNakit=0,karmaPos=0;
+  var origTotal=getTotal(), finalTotal=getFinalTotal(), items=[],now=istNow();
+  var karmaNakit=0,karmaPos=0,karmaIban=0;
   if(payType==='karma'){
-    karmaNakit=parseFloat(ge('karma-nakit').value)||0;karmaPos=parseFloat(ge('karma-pos').value)||0;
-    if(!karmaTamMi(karmaNakit,karmaPos,finalTotal))return;
+    karmaNakit=parseFloat(ge('karma-nakit').value)||0;karmaPos=parseFloat(ge('karma-pos').value)||0;karmaIban=parseFloat(ge('karma-iban').value)||0;
+    if(!karmaTamMi(karmaNakit,karmaPos,karmaIban,finalTotal))return;
   }
   ge('savebtn').disabled=true;
   for(var i=0;i<keys.length;i++){var m=findM(keys[i]);items.push({id:keys[i],name:m.name,qty:basket[keys[i]],price:m.price});}
   var ver=payType==='nakit'?(parseFloat(ge('vpara').value)||0):0;
   var note=ge('anot').value.trim();
   var revizeNot=(origTotal!==finalTotal)?' [Revize: '+origTotal.toLocaleString('tr-TR')+'\u20ba \u2192 '+finalTotal.toLocaleString('tr-TR')+'\u20ba]':'';
-  var karmaНot=payType==='karma'?' [Nakit: '+karmaNakit.toLocaleString('tr-TR')+'\u20ba + POS: '+karmaPos.toLocaleString('tr-TR')+'\u20ba]':'';
-  var sale={id:now.getTime(),time:pad(now.getHours())+':'+pad(now.getMinutes()),hour:now.getHours(),items:items,total:finalTotal,origTotal:origTotal!==finalTotal?origTotal:null,pay:payType,karmaNakit:payType==='karma'?karmaNakit:null,karmaPos:payType==='karma'?karmaPos:null,verilen:ver||null,ust:ver?ver-finalTotal:null,note:note+revizeNot+karmaНot};
+  var karmaNotS=payType==='karma'?karmaNotu(karmaNakit,karmaPos,karmaIban):'';
+  var sale={id:yeniId(),time:pad(now.getUTCHours())+':'+pad(now.getUTCMinutes()),hour:now.getUTCHours(),items:items,total:finalTotal,origTotal:origTotal!==finalTotal?origTotal:null,pay:payType,karmaNakit:payType==='karma'?karmaNakit:null,karmaPos:payType==='karma'?karmaPos:null,karmaIban:payType==='karma'?karmaIban:null,verilen:ver||null,ust:ver?ver-finalTotal:null,note:note+revizeNot+karmaNotS};
   var dk=todayKey();
-  getSales(dk,function(arr,err){
+  fbUpdateList('sales',dk,function(arr){return arr.concat([sale]);},function(err){
     if(err){ge('savebtn').disabled=false;return;}
-    arr=arr||[];arr.push(sale);
-    saveSalesF(dk,arr,function(err2){
-      if(err2){ge('savebtn').disabled=false;return;}
-      basket={};ge('vpara').value='';ge('anot').value='';ge('ustbox').style.display='none';
-      if(ge('revize-tutar'))ge('revize-tutar').value='';
-      if(ge('revize-blok'))ge('revize-blok').style.display='none';
-      if(ge('karma-nakit'))ge('karma-nakit').value='';
-      if(ge('karma-pos'))ge('karma-pos').value='';
-      setPay('nakit');
-      renderBasket();updateHeader();renderSatis();renderKasa();
-      showToast('Sat\u0131\u015f kaydedildi \u2713');
-    });
+    basket={};ge('vpara').value='';ge('anot').value='';ge('ustbox').style.display='none';
+    if(ge('revize-tutar'))ge('revize-tutar').value='';
+    if(ge('revize-blok'))ge('revize-blok').style.display='none';
+    setPay('nakit');
+    renderBasket();updateHeader();renderSatis();renderKasa();
+    showToast('Sat\u0131\u015f kaydedildi \u2713');
   });
 }
 
@@ -958,11 +997,7 @@ window.confirmYes=confirmYes; window.confirmNo=confirmNo;
 
 function delSale(id){
   showConfirm('Bu satış kaydı silinecek, geri alınamaz.', function(){
-    getSales(viewDate,function(arr,err){
-      if(err)return;
-      arr=(arr||[]).filter(function(s){return s.id!==id;});
-      saveSalesF(viewDate,arr,function(err2){if(err2)return;renderSatis();renderKasa();updateHeader();});
-    });
+    fbUpdateList('sales',viewDate,function(arr){return arr.filter(function(s){return s.id!==id;});},function(err){if(err)return;renderSatis();renderKasa();updateHeader();});
   });
 }
 
@@ -980,6 +1015,7 @@ function calcNakPos(sales){
     if(s.pay==='karma'){
       nak+=(s.karmaNakit||0);
       pos+=(s.karmaPos||0);
+      iban+=(s.karmaIban||0);
     } else if(s.pay==='nakit'){
       nak+=s.total;
     } else if(s.pay==='iban'){
@@ -993,10 +1029,10 @@ function calcNakPos(sales){
   }
   return {nak:nak,pos:pos,iban:iban};
 }
-function addGelir(){var ac=ge('gel-ac').value.trim(),tu=parseFloat(ge('gel-tu').value);if(!ac||!tu||tu<=0)return;getGelirs(viewDate,function(arr,err){if(err)return;arr=arr||[];arr.push({id:Date.now(),aciklama:ac,tutar:tu});saveGelirs(viewDate,arr,function(err2){if(err2)return;ge('gel-ac').value='';ge('gel-tu').value='';renderKasa();showToast('Ek gelir eklendi \u2713');});});}
-function addGider(){var ac=ge('gid-ac').value.trim(),tu=parseFloat(ge('gid-tu').value);if(!ac||!tu||tu<=0)return;getGiders(viewDate,function(arr,err){if(err)return;arr=arr||[];arr.push({id:Date.now(),aciklama:ac,tutar:tu});saveGiders(viewDate,arr,function(err2){if(err2)return;ge('gid-ac').value='';ge('gid-tu').value='';renderKasa();showToast('Gider eklendi \u2713');});});}
-function delGelir(id){showConfirm('Bu ek gelir kaydı silinecek.',function(){getGelirs(viewDate,function(arr,err){if(err)return;arr=(arr||[]).filter(function(g){return g.id!==id;});saveGelirs(viewDate,arr,function(err2){if(err2)return;renderKasa();});});});}
-function delGider(id){showConfirm('Bu gider kaydı silinecek.',function(){getGiders(viewDate,function(arr,err){if(err)return;arr=(arr||[]).filter(function(g){return g.id!==id;});saveGiders(viewDate,arr,function(err2){if(err2)return;renderKasa();});});});}
+function addGelir(){var ac=ge('gel-ac').value.trim(),tu=parseFloat(ge('gel-tu').value);if(!ac||!tu||tu<=0)return;var yeni={id:Date.now(),aciklama:ac,tutar:tu};fbUpdateList('gelir',viewDate,function(arr){return arr.concat([yeni]);},function(err){if(err)return;ge('gel-ac').value='';ge('gel-tu').value='';renderKasa();showToast('Ek gelir eklendi ✓');});}
+function addGider(){var ac=ge('gid-ac').value.trim(),tu=parseFloat(ge('gid-tu').value);if(!ac||!tu||tu<=0)return;var yeni={id:Date.now(),aciklama:ac,tutar:tu};fbUpdateList('gider',viewDate,function(arr){return arr.concat([yeni]);},function(err){if(err)return;ge('gid-ac').value='';ge('gid-tu').value='';renderKasa();showToast('Gider eklendi ✓');});}
+function delGelir(id){showConfirm('Bu ek gelir kaydı silinecek.',function(){fbUpdateList('gelir',viewDate,function(arr){return arr.filter(function(g){return g.id!==id;});},function(err){if(err)return;renderKasa();});});}
+function delGider(id){showConfirm('Bu gider kaydı silinecek.',function(){fbUpdateList('gider',viewDate,function(arr){return arr.filter(function(g){return g.id!==id;});},function(err){if(err)return;renderKasa();});});}
 
 function renderKasa(){
   ge('kas-dlbl').textContent=fmtD(viewDate);
@@ -1024,7 +1060,7 @@ function startLiveWatch(){
   var dk=todayKey();
   fbListen('sales',dk,function(arr){
     arr=arr||[];
-    var np3=calcNakPos(arr),nak=np3.nak,pos=np3.pos,um={};
+    var np3=calcNakPos(arr),nak=np3.nak,pos=np3.pos+np3.iban,um={};
     for(var i=0;i<arr.length;i++){for(var j=0;j<arr[i].items.length;j++){var it=arr[i].items[j];if(!um[normalizeName(it.name)])um[normalizeName(it.name)]={qty:0,total:0};um[normalizeName(it.name)].qty+=it.qty;um[normalizeName(it.name)].total+=it.price*it.qty;}}
     ge('lv-ciro').textContent=tl(nak+pos);
     ge('lv-adet').textContent=arr.length;
@@ -1847,11 +1883,12 @@ function openManuel(){
   // Tarihi görüntülenen güne ayarla
   ge('m-tarih').value=viewDate;
   // Saati şimdiye ayarla
-  var now=new Date();
-  ge('m-saat').value=pad(now.getHours())+':'+pad(now.getMinutes());
+  var now=istNow();
+  ge('m-saat').value=pad(now.getUTCHours())+':'+pad(now.getUTCMinutes());
   mBasket={};mPayType='nakit';
   ge('m-pb-nak').className='pb on';
   ge('m-pb-pos').className='pb';
+  if(ge('m-pb-iban'))ge('m-pb-iban').className='pb';
   if(ge('m-pb-karma'))ge('m-pb-karma').className='pb';
   if(ge('m-karma-blok'))ge('m-karma-blok').style.display='none';
   ge('m-not').value='';
@@ -1946,19 +1983,13 @@ function mSetPay(t){
   mPayType=t;
   ge('m-pb-nak').className='pb'+(t==='nakit'?' on':'');
   ge('m-pb-pos').className='pb'+(t==='pos'?' on':'');
+  ge('m-pb-iban').className='pb'+(t==='iban'?' on':'');
   ge('m-pb-karma').className='pb'+(t==='karma'?' on':'');
   ge('m-karma-blok').style.display=t==='karma'?'block':'none';
-  if(t==='karma'){if(ge('m-karma-nakit'))ge('m-karma-nakit').value='';if(ge('m-karma-pos'))ge('m-karma-pos').value='';if(ge('m-karma-durum'))ge('m-karma-durum').textContent='';}
+  if(t==='karma'){if(ge('m-karma-nakit'))ge('m-karma-nakit').value='';if(ge('m-karma-pos'))ge('m-karma-pos').value='';if(ge('m-karma-iban'))ge('m-karma-iban').value='';if(ge('m-karma-durum'))ge('m-karma-durum').textContent='';}
 }
 function mCalcKarma(){
-  var total=getMFinalTotal();
-  var n=parseFloat(ge('m-karma-nakit').value)||0;
-  var p=parseFloat(ge('m-karma-pos').value)||0;
-  var kalan=total-n-p;
-  var el=ge('m-karma-durum');
-  if(kalan===0){el.textContent='\u2713 Tam tutar karsilandi';el.style.color='#1a7a4a';}
-  else if(kalan>0){el.textContent='Eksik: '+kalan.toLocaleString('tr-TR')+' \u20ba';el.style.color='#c0392b';}
-  else{el.textContent='Fazla: '+Math.abs(kalan).toLocaleString('tr-TR')+' \u20ba';el.style.color='#b87a10';}
+  karmaDurumYaz(ge('m-karma-durum'),getMFinalTotal(),parseFloat(ge('m-karma-nakit').value)||0,parseFloat(ge('m-karma-pos').value)||0,parseFloat(ge('m-karma-iban').value)||0);
 }
 function saveManuel(){
   var keys=Object.keys(mBasket);if(!keys.length)return;
@@ -1970,22 +2001,18 @@ function saveManuel(){
   var items=[];
   for(var i=0;i<keys.length;i++){var m=findM(keys[i]);items.push({id:keys[i],name:m.name,qty:mBasket[keys[i]],price:m.price});}
   var hour=parseInt(saat.split(':')[0])||0;
-  var karmaNakit2=0,karmaPos2=0;
-  if(mPayType==='karma'){karmaNakit2=parseFloat(ge('m-karma-nakit').value)||0;karmaPos2=parseFloat(ge('m-karma-pos').value)||0;if(!karmaTamMi(karmaNakit2,karmaPos2,finalTotal))return;}
-  var karmaNotM=mPayType==='karma'?' [Nakit: '+karmaNakit2.toLocaleString('tr-TR')+'\u20ba + POS: '+karmaPos2.toLocaleString('tr-TR')+'\u20ba]':'';
-  var revizeNotM=(origTotal!==finalTotal)?' [Revize: '+origTotal.toLocaleString('tr-TR')+'\u20ba \u2192 '+finalTotal.toLocaleString('tr-TR')+'\u20ba]':'';
-  var sale={id:Date.now(),time:saat,hour:hour,items:items,total:finalTotal,origTotal:origTotal!==finalTotal?origTotal:null,pay:mPayType,karmaNakit:mPayType==='karma'?karmaNakit2:null,karmaPos:mPayType==='karma'?karmaPos2:null,verilen:null,ust:null,note:not+(not?', ':'')+'\u{1F4DD}Manuel'+revizeNotM+karmaNotM};
-  getSales(tarih,function(arr,err){
+  var karmaNakit2=0,karmaPos2=0,karmaIban2=0;
+  if(mPayType==='karma'){karmaNakit2=parseFloat(ge('m-karma-nakit').value)||0;karmaPos2=parseFloat(ge('m-karma-pos').value)||0;karmaIban2=parseFloat(ge('m-karma-iban').value)||0;if(!karmaTamMi(karmaNakit2,karmaPos2,karmaIban2,finalTotal))return;}
+  var karmaNotM=mPayType==='karma'?karmaNotu(karmaNakit2,karmaPos2,karmaIban2):'';
+  var revizeNotM=(origTotal!==finalTotal)?' [Revize: '+origTotal.toLocaleString('tr-TR')+'₺ → '+finalTotal.toLocaleString('tr-TR')+'₺]':'';
+  var sale={id:yeniId(),time:saat,hour:hour,items:items,total:finalTotal,origTotal:origTotal!==finalTotal?origTotal:null,pay:mPayType,karmaNakit:mPayType==='karma'?karmaNakit2:null,karmaPos:mPayType==='karma'?karmaPos2:null,karmaIban:mPayType==='karma'?karmaIban2:null,verilen:null,ust:null,note:not+(not?', ':'')+'\u{1F4DD}Manuel'+revizeNotM+karmaNotM};
+  fbUpdateList('sales',tarih,function(arr){return arr.concat([sale]);},function(err){
     if(err)return;
-    arr=arr||[];arr.push(sale);
-    saveSalesF(tarih,arr,function(err2){
-      if(err2)return;
-      closeManuel();
-      // Eğer aynı gündeyse listeyi yenile
-      if(tarih===viewDate)renderSatis();
-      if(tarih===todayKey())updateHeader();
-      showToast('Adisyon eklendi \u2713');
-    });
+    closeManuel();
+    // Eğer aynı gündeyse listeyi yenile
+    if(tarih===viewDate)renderSatis();
+    if(tarih===todayKey())updateHeader();
+    showToast('Adisyon eklendi ✓');
   });
 }
 
