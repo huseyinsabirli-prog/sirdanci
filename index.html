@@ -1023,9 +1023,23 @@ function normalizeName(name){
   return name;
 }
 // "iban", "IBAN", "İban", "İBAN", "ıban" yazımlarını tanır. JS'te "İ" küçültülünce "i̇" (i + nokta) olduğu için önce harfler sadeleştirilir.
-function notIbanMi(note){
-  var n=String(note||'').replace(/[İIı]/g,'i').replace(/̇/g,'').toLowerCase();
-  return n.indexOf('iban')>=0;
+function notSade(note){return String(note||'').replace(/[İIı]/g,'i').replace(/̇/g,'').toLowerCase();}
+function notIbanMi(note){return /iban|havale|\beft\b/.test(notSade(note));}
+function notKartMi(note){return /kred[iı]|kart|\bkk\b|\bpos\b/.test(notSade(note));}
+function notNakitMi(note){return /nakit/.test(notSade(note));}
+// Eski ("POS / İban" düğmesi dönemi) kayıtlarda POS tutarının türü. Kural: KK / Kredi kart / POS → card,
+// IBAN / Havale / EFT → bank_transfer. Not iki ayrı türü birden söylüyorsa tahmin edilmez → unresolved.
+function eskiPosTuru(s){
+  var note=s.note;
+  if(s.pay==='karma'){
+    // Eski karmanın notunda "[Nakit: … + POS: …]" otomatik yazar; yalnız İban/Havale izi belirsizlik yaratır
+    return notIbanMi(note)?'unresolved':'card';
+  }
+  var iz=(notIbanMi(note)?1:0)+(notKartMi(note)?1:0)+(notNakitMi(note)?1:0);
+  if(iz>1)return 'unresolved';
+  if(notIbanMi(note))return 'bank_transfer';
+  if(notNakitMi(note))return 'unresolved'; // POS düğmesiyle kaydedilip notta "nakit" yazıyorsa çelişki
+  return 'card';                           // düğme POS, not kart diyor ya da boş
 }
 function calcNakPos(sales){
   var nak=0,pos=0,iban=0;
@@ -2042,7 +2056,7 @@ var FINANS_ORIGIN='https://ayten-abla-muhasebe.sirdanciaytenabla.chatgpt.site';
 var NONCE_OMRU=10*60*1000;
 var aktarim=null;
 // Yayındaki sürümü doğrulamak için; aktarım veya okuma mantığı her değiştiğinde artırılır
-var ADISYON_SURUM='2026.11.02-r3 (aktarım v1, REST sunucu okuması)';
+var ADISYON_SURUM='2026.11.05-r5 (aktarım v1; eski POS notları eşleniyor; v3 kasa hazır, kapalı)';
 if(ge('adisyon-surum'))ge('adisyon-surum').textContent='Sürüm: '+ADISYON_SURUM;
 
 function kurus(v){return Math.round(Number(v)*100);}
@@ -2056,14 +2070,14 @@ function satisOdemeleri(s,hatalar,no){
   if(s.pay==='nakit')out.push({method:'cash',amountMinor:T});
   else if(s.pay==='iban')out.push({method:'bank_transfer',amountMinor:T});
   else if(s.pay==='pos'){
-    // Eski kayıtlarda düğme "POS / İban" idi: notta İban yazsa da yazmasa da kart mı havale mi belli değil
-    out.push({method:eskiKayitMi(s)?'unresolved':'card',amountMinor:T});
+    // Eski kayıtlarda düğme "POS / İban" idi: tür nottan çıkarılır (eskiPosTuru); yeni kayıtta POS = kart
+    out.push({method:eskiKayitMi(s)?eskiPosTuru(s):'card',amountMinor:T});
   }
   else if(s.pay==='karma'){
     var n=kurus(s.karmaNakit||0),c=kurus(s.karmaPos||0),b=kurus(s.karmaIban||0);
     if(n<0||c<0||b<0){hatalar.push(no+': karma tutar negatif');return out;}
     if(n)out.push({method:'cash',amountMinor:n});
-    if(c)out.push({method:eskiKayitMi(s)?'unresolved':'card',amountMinor:c});
+    if(c)out.push({method:eskiKayitMi(s)?eskiPosTuru(s):'card',amountMinor:c});
     if(b)out.push({method:'bank_transfer',amountMinor:b});
   }
   else hatalar.push(no+': bilinmeyen ödeme şekli ('+s.pay+')');
@@ -2158,8 +2172,108 @@ function paketToplamlari(p){
 }
 function toplamMetni(p){
   var t=paketToplamlari(p),f=function(v){return tl(v/100);};
-  return 'Nakit: '+f(t.cash)+' · Kart: '+f(t.card)+' · Havale/İban: '+f(t.bank_transfer)+(t.unresolved?' · Belirsiz (finans çözecek): '+f(t.unresolved):'')+'\nGenel toplam: '+f(t.genel);
+  var m='Nakit: '+f(t.cash)+' · Kart: '+f(t.card)+' · Havale/İban: '+f(t.bank_transfer)+(t.unresolved?' · Belirsiz (finans çözecek): '+f(t.unresolved):'')+'\nGenel toplam: '+f(t.genel);
+  if(p.cashReconciliation){
+    var c=p.cashReconciliation,ek=0,ds=0,i;
+    for(i=0;i<c.additions.length;i++)ek+=c.additions[i].amountMinor;
+    for(i=0;i<c.deductions.length;i++)ds+=c.deductions[i].amountMinor;
+    m+='\nKasa mutabakatı (gelir değildir): Nakit '+f(c.cashSalesMinor)+' + Ek gelir '+f(ek)+' − Gider/devir '+f(ds)+' = Babaya giden '+f(c.handedOverMinor)+(c.handedOverMinor<0?' (KASA AÇIĞI)':'');
+  }
+  return m;
 }
+
+// ── KASA MUTABAKATI (payload v3) ──
+// Mor "Babama Giden Para" kartının (renderKasa: nakit + ek gelir − gider) aynısını finansa mutabakat olarak taşır.
+// Yeni alıcı canlıya alınıp birlikte test edilmeden AÇILMAZ; kapalıyken aktarım eskisi gibi v1 (yalnız satış) gider.
+var KASA_KAPSAMI_ACIK=false;
+var KASA_LISTE_SINIR=1000, KASA_JSON_SINIR=9000;
+
+// Anahtarları sıralı, boşluksuz JSON (boyut sınırı bu biçimde ölçülür)
+function kanonikJSON(v){
+  if(v===null||typeof v!=='object')return JSON.stringify(v);
+  if(Array.isArray(v))return '['+v.map(kanonikJSON).join(',')+']';
+  return '{'+Object.keys(v).sort().map(function(k){return JSON.stringify(k)+':'+kanonikJSON(v[k]);}).join(',')+'}';
+}
+// Kasa günündeki gelir veya gider listesini kalem kalem çevirir. Açıklamadan tür tahmini yapılmaz, metin aynen korunur.
+function kasaKalemleri(ham,ad,hatalar){
+  if(ham!==null&&ham!==undefined&&typeof ham!=='object'){hatalar.push(ad+' listesi bozuk');return [];}
+  var arr=toArr(ham),out=[],ids={};
+  if(arr.length>KASA_LISTE_SINIR){hatalar.push(ad+': en fazla '+KASA_LISTE_SINIR+' kalem gönderilebilir (bu günde '+arr.length+' var)');return [];}
+  for(var i=0;i<arr.length;i++){
+    var g=arr[i],no=ad+' '+(i+1)+'. kalem';
+    if(!g||typeof g!=='object'){hatalar.push(no+': bozuk kayıt');continue;}
+    var id=(g.id===undefined||g.id===null)?'':String(g.id);
+    if(!id||id.length>200){hatalar.push(no+': kimlik eksik ya da 200 karakterden uzun');continue;}
+    if(ids[id]){hatalar.push(no+': aynı kimlik iki kez var ('+id+')');continue;}
+    ids[id]=true;
+    var ac=(g.aciklama===undefined||g.aciklama===null)?'':g.aciklama;
+    if(typeof ac!=='string'){hatalar.push(no+': açıklama metin değil');continue;}
+    if(ac.length>1000){hatalar.push(no+': açıklama 1000 karakterden uzun');continue;}
+    if(!sayiMi(g.tutar)||g.tutar<0){hatalar.push(no+' ('+ac+'): tutar geçersiz');continue;}
+    var m=kurus(g.tutar);
+    if(!Number.isSafeInteger(m)){hatalar.push(no+' ('+ac+'): tutar çok büyük');continue;}
+    // Kuruştan küçük basamak (ör. 1,005 TL) sessizce yuvarlanmaz
+    if(Math.abs(g.tutar*100-m)>1e-6){hatalar.push(no+' ('+ac+'): tutar kuruştan küçük basamak içeriyor ('+g.tutar+')');continue;}
+    out.push({id:id,description:ac,amountMinor:m});
+  }
+  return out;
+}
+// p: aktarimPaketi çıktısı (aynı sunucu okumasından). gun: {gelir, gider} ham düğümleri.
+function kasaPaketi(p,gun){
+  var h=p.hatalar,payload=p.payload,i,j;
+  if(h.length)return p;
+  var nakit=0,belirsiz=0;
+  for(i=0;i<payload.sales.length;i++)for(j=0;j<payload.sales[i].payments.length;j++){
+    var x=payload.sales[i].payments[j];
+    if(x.method==='cash')nakit+=x.amountMinor;
+    if(x.method==='unresolved'&&x.amountMinor>0)belirsiz++;
+  }
+  if(belirsiz)h.push(belirsiz+' ödemenin türü belirsiz (eski "POS / İban" kaydı). Kasa mutabakatıyla göndermeden önce bu ödemelerin türü kaynakta çözülmeli.');
+  var additions=kasaKalemleri(gun.gelir,'Ek gelir',h);
+  var deductions=kasaKalemleri(gun.gider,'Gider/devir',h);
+  if(h.length)return p;
+  var ek=0,ds=0;
+  for(i=0;i<additions.length;i++)ek+=additions[i].amountMinor;
+  for(i=0;i<deductions.length;i++)ds+=deductions[i].amountMinor;
+  var teslim=nakit+ek-ds;
+  if(![nakit,ek,ds,teslim].every(Number.isSafeInteger)){h.push('Kasa tutarları güvenli sayı sınırını aşıyor');return p;}
+  var cr={schemaVersion:1,businessDate:payload.businessDate,currency:'TRY',cashSalesMinor:nakit,additions:additions,deductions:deductions,handedOverMinor:teslim};
+  var boyut=new TextEncoder().encode(kanonikJSON(cr)).length;
+  if(boyut>KASA_JSON_SINIR){h.push('Kasa mutabakatı '+KASA_JSON_SINIR+' bayt sınırını aşıyor ('+boyut+' bayt). Kalemler kırpılmadan gönderilemez.');return p;}
+  var v3={};
+  for(var k in payload)v3[k]=payload[k];
+  v3.schemaVersion=3;
+  v3.coverage=['sales','cash_reconciliation'];
+  v3.cashReconciliation=cr;
+  var boyut2=new TextEncoder().encode(JSON.stringify(v3)).length;
+  if(boyut2>2*1024*1024){h.push('Veri 2 MB sınırını aşıyor');return p;}
+  return {payload:v3,hatalar:h};
+}
+// Satış, ek gelir ve gider/devir TEK REST isteğiyle aynı gün düğümünden okunur (aynı sunucu anlık görüntüsü).
+// Bir düğümün olmaması Firebase'de listenin gerçekten boş olduğu anlamına gelir; istek başarısızsa hiçbir şey gönderilmez.
+function sunucudanOkuGun(dk,cb){
+  if(!(fbOK&&auth&&auth.currentUser))return cb(null,'Oturum yok, aktarım yapılamaz.');
+  if(!window.fetch)return cb(null,'Bu tarayıcı sunucudan doğrulanmış okumayı desteklemiyor.');
+  var bitti=false;
+  var sure=setTimeout(function(){if(bitti)return;bitti=true;cb(null,'Sunucu 20 saniyede yanıt vermedi. Aktarım yapılmadı.');},20000);
+  auth.currentUser.getIdToken(true).then(function(token){
+    var url=FIREBASE_CONFIG.databaseURL+'/vardiya/'+dk+'.json?auth='+encodeURIComponent(token);
+    return fetch(url,{cache:'no-store',credentials:'omit'});
+  }).then(function(res){
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    return res.json();
+  }).then(function(val){
+    if(bitti)return;bitti=true;clearTimeout(sure);
+    if(val!==null&&(typeof val!=='object'||Array.isArray(val)))return cb(null,'Gün kaydı beklenmeyen biçimde. Aktarım yapılmadı.');
+    val=val||{};
+    cb({sales:val.sales,gelir:val.gelir,gider:val.gider,readAt:new Date().toISOString()});
+  }).catch(function(e){
+    if(bitti)return;bitti=true;clearTimeout(sure);
+    console.log('aktarim gun okuma',e);
+    cb(null,'Gün kaydı sunucudan doğrulanarak okunamadı ('+(e&&e.message||'hata')+'). Aktarım yapılmadı.');
+  });
+}
+// ── /KASA MUTABAKATI ──
 
 function aktarDurum(msg,renk){var el=ge('aktar-durum');if(!el)return;el.textContent=msg;el.style.color=renk||'#555';}
 function aktarimBitir(){
@@ -2229,10 +2343,12 @@ window.addEventListener('message',function(e){
     a.nonce=nonce;a.nonceAt=Date.now();a.payload=null;a.gonderildi=false;a.ack=false;
     ge('btn-aktar-tekrar').style.display='none';
     aktarDurum('Bağlantı kuruldu. Satışlar sunucudan okunuyor…');
-    sunucudanOku(a.dk,function(r,hata){
+    var okuyucu=KASA_KAPSAMI_ACIK?sunucudanOkuGun:sunucudanOku;
+    okuyucu(a.dk,function(r,hata){
       if(aktarim!==a||a.bitti||a.nonce!==nonce)return;
       if(hata){aktarimHata(hata);return;}
-      var p=aktarimPaketi(a.dk,r.val,r.readAt);
+      // v3: satış ve kasa kalemleri aynı okumadan; v1: yalnız satış
+      var p=KASA_KAPSAMI_ACIK?kasaPaketi(aktarimPaketi(a.dk,r.sales,r.readAt),r):aktarimPaketi(a.dk,r.val,r.readAt);
       if(p.hatalar.length){aktarimHata('Aktarım yapılmadı. Önce düzeltilmesi gerekenler:\n• '+p.hatalar.slice(0,8).join('\n• ')+(p.hatalar.length>8?'\n… ve '+(p.hatalar.length-8)+' sorun daha':''));return;}
       a.payload=p.payload;
       snapshotGonder(a);
