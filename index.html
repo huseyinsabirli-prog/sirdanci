@@ -2120,7 +2120,7 @@ var FINANS_ORIGIN='https://ayten-abla-muhasebe.sirdanciaytenabla.chatgpt.site';
 var NONCE_OMRU=10*60*1000;
 var aktarim=null;
 // Yayındaki sürümü doğrulamak için; aktarım veya okuma mantığı her değiştiğinde artırılır
-var ADISYON_SURUM='2026.11.07-r6.1-aday (eski POS/IBAN not tanıma; ödeme düzeltme; kasa v3 kapalı)';
+var ADISYON_SURUM='2026.11.08-r6.2 (kasa v3 açık; eski POS/IBAN not tanıma; ödeme düzeltme)';
 if(ge('adisyon-surum'))ge('adisyon-surum').textContent='Sürüm: '+ADISYON_SURUM;
 
 var PARA_SINIR=1000000000000;
@@ -2264,7 +2264,7 @@ function toplamMetni(p){
 // ── KASA MUTABAKATI (payload v3) ──
 // Mor "Babama Giden Para" kartının (renderKasa: nakit + ek gelir − gider) aynısını finansa mutabakat olarak taşır.
 // Yeni alıcı canlıya alınıp birlikte test edilmeden AÇILMAZ; kapalıyken aktarım eskisi gibi v1 (yalnız satış) gider.
-var KASA_KAPSAMI_ACIK=false;
+var KASA_KAPSAMI_ACIK=true;
 var KASA_LISTE_SINIR=1000, KASA_JSON_SINIR=9000, KASA_PARA_SINIR=1000000000000;
 
 // Anahtarları sıralı, boşluksuz JSON (boyut sınırı bu biçimde ölçülür)
