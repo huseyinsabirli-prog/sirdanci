@@ -938,7 +938,7 @@ function karmaTamMi(n,p,ib,total){
   if(fark!==0){showToast('Karma toplamı '+tl(total)+' olmalı ('+(fark>0?'eksik ':'fazla ')+tl(Math.abs(fark)/100)+')');return false;}
   return true;
 }
-function saveSale(){
+function saveSale(teyit){
   var keys=Object.keys(basket);if(!keys.length)return;
   var origTotal=getTotal(), finalTotal=getFinalTotal(), items=[],now=istNow();
   var karmaNakit=0,karmaPos=0,karmaIban=0;
@@ -947,6 +947,12 @@ function saveSale(){
     if(!karmaTamMi(karmaNakit,karmaPos,karmaIban,finalTotal))return;
   }
   if(!paraGecerli(finalTotal)||!paraGecerli(origTotal)){showToast('Satış tutarı geçersiz');return;}
+  // Seçilen yöntem açıklamayla çelişiyorsa kaydetmeden önce kullanıcıya sor
+  if(!teyit||typeof teyit!=='object'){
+    var uyari=odemeNotUyarisi(payType,ge('anot').value.trim());
+    if(uyari){odemeTeyitSor(uyari,payType,function(sec){if(sec)saveSale({pay:sec,neden:uyari.metin});});return;}
+    teyit=null;
+  }
   ge('savebtn').disabled=true;
   for(var i=0;i<keys.length;i++){var m=findM(keys[i]);items.push({id:keys[i],name:m.name,qty:basket[keys[i]],price:m.price});}
   var ver=payType==='nakit'?(parseFloat(ge('vpara').value)||0):0;
@@ -954,6 +960,7 @@ function saveSale(){
   var revizeNot=(origTotal!==finalTotal)?' [Revize: '+origTotal.toLocaleString('tr-TR')+'\u20ba \u2192 '+finalTotal.toLocaleString('tr-TR')+'\u20ba]':'';
   var karmaNotS=payType==='karma'?karmaNotu(karmaNakit,karmaPos,karmaIban):'';
   var sale={id:yeniId(),time:pad(now.getUTCHours())+':'+pad(now.getUTCMinutes()),hour:now.getUTCHours(),items:items,total:finalTotal,origTotal:origTotal!==finalTotal?origTotal:null,pay:payType,karmaNakit:payType==='karma'?karmaNakit:null,karmaPos:payType==='karma'?karmaPos:null,karmaIban:payType==='karma'?karmaIban:null,verilen:ver||null,ust:ver?ver-finalTotal:null,note:note+revizeNot+karmaNotS};
+  if(teyit)kayitTeyidi(sale,teyit.pay,payType,teyit.neden,new Date().toISOString());
   var dk=todayKey();
   fbUpdateList('sales',dk,function(arr){return arr.concat([sale]);},function(err){
     if(err){ge('savebtn').disabled=false;return;}
@@ -983,7 +990,7 @@ function renderSatis(){
     }
     if(!arr||!arr.length){el.innerHTML='<div class="empty">Bu vardiya i\xe7in sat\u0131\u015f kayd\u0131 yok</div>';return;}
     var rev=arr.slice().reverse(),html='',ids=[];
-    for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=(s.ust!==null&&s.ust!==undefined&&!isNaN(s.ust))?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';var payBadge='<span class="badge">'+paymentLabel(s)+'</span>';ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta">'+payBadge+'<span class="stime">'+s.time+'</span><button class="delbtn" id="ep-'+s.id+'">Ödeme düzelt</button><button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
+    for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=(s.ust!==null&&s.ust!==undefined&&!isNaN(s.ust))?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';var lbl=paymentLabel(s),payBadge='<span class="badge">'+lbl+'</span>';if(/belirsiz/.test(lbl))ust+='<div style="color:#b35c00;font-weight:700;margin-top:3px">⚠ '+belirsizNedeni(s)+' — “Ödeme düzelt” ile seçin</div>';ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta">'+payBadge+'<span class="stime">'+s.time+'</span><button class="delbtn" id="ep-'+s.id+'">Ödeme düzelt</button><button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
     el.innerHTML=html;
     for(var i=0;i<ids.length;i++){(function(sid){var edit=ge('ep-'+sid);if(edit)edit.addEventListener('click',function(e){e.preventDefault();editSalePayment(sid);});var b=ge('ds-'+sid);if(!b)return;b.addEventListener('touchend',function(e){e.preventDefault();delSale(sid);},false);b.addEventListener('click',function(e){e.preventDefault();delSale(sid);},false);})(ids[i]);}
   });
@@ -1094,7 +1101,10 @@ function notOdemeIzleri(note){
     olumsuz:k(/ (değil|degil|yok|olmadan|hariç|haric|iptal|yanlış|yanlis) /)||k(/ (kart|kredi|pos|iban|havale|eft|nakit)[a-zçğöşü]*(siz|suz|süz) /)||k(/ [a-zçğöşü]+(madi|medi|mamiş|memiş|mamis|memis|miyor|muyor|müyor|madan|meden) /),
     kart:k(/ (kk|kart[a-zçğöşü]*|kredi[a-zçğöşü]*|pos(la|tan|tla|u|a)?) /),
     banka:k(/ (iban[a-zçğöşü]*|havale[a-zçğöşü]*|eft[a-zçğöşü]*) /),
-    nakit:k(/ (nakit[a-zçğöşü]*|nakd[a-zçğöşü]*) /)
+    nakit:k(/ (nakit[a-zçğöşü]*|nakd[a-zçğöşü]*) /),
+    // Uyarı metninde kullanıcının yazdığı kelimeyi göstermek için
+    bankaAd:k(/ iban[a-zçğöşü]* /)?'IBAN':k(/ havale[a-zçğöşü]* /)?'Havale':k(/ eft[a-zçğöşü]* /)?'EFT':'',
+    kartAd:k(/ (kredi[a-zçğöşü]*|kk) /)?'kredi kartı':k(/ kart[a-zçğöşü]* /)?'kart':k(/ pos(la|tan|tla|u|a)? /)?'POS':''
   };
 }
 // Eski ("POS / İban" düğmesi dönemi) kaydın POS/ortak tutarının yöntemi. Açık KK/Kredi kartı/POS → card,
@@ -1107,6 +1117,61 @@ function eskiPosTuru(s){
   if(iz.kart&&!iz.banka&&!nakitCelisir)return 'card';
   if(iz.banka&&!iz.kart&&!nakitCelisir)return 'bank_transfer';
   return 'unresolved';
+}
+var ODEME_AD={nakit:'Nakit',pos:'POS',iban:'IBAN',karma:'Karma'};
+// Kayıttan önce: seçilen tek yöntem ile kullanıcının yazdığı açıklama çelişiyor mu? Çelişki yoksa null.
+// Karma sorulmaz (tutarlar ayrı ayrı girildi). Açıklamaya bakıp yöntem sessizce değiştirilmez; kullanıcı seçer.
+function odemeNotUyarisi(pay,note){
+  if(['nakit','pos','iban'].indexOf(pay)<0)return null;
+  var iz=notOdemeIzleri(note),anilan=[];
+  if(iz.nakit)anilan.push('nakit');if(iz.kart)anilan.push('pos');if(iz.banka)anilan.push('iban');
+  if(!anilan.length)return null;
+  var yazan=[];if(iz.nakit)yazan.push('nakit');if(iz.kart)yazan.push(iz.kartAd||'POS');if(iz.banka)yazan.push(iz.bankaAd||'IBAN');
+  var secili=ODEME_AD[pay]+' seçili';
+  if(iz.olumsuz)return {neden:'olumsuz',metin:secili+' ama açıklamada ödeme türüyle ilgili olumsuz bir ifade var: “'+String(note).trim()+'”. Ödeme yöntemi hangisi?'};
+  if(anilan.length>1)return {neden:'birden-fazla',metin:secili+' ama açıklamada birden fazla ödeme türü yazıyor ('+yazan.join(', ')+'). Ödeme yöntemi hangisi? Tutar bölündüyse geri dönüp Karma seçin.'};
+  if(anilan[0]!==pay)return {neden:'farkli',metin:secili+' ama açıklamada '+yazan[0]+' yazıyor. Ödeme yöntemi hangisi?'};
+  return null;
+}
+// Kullanıcının kayıt anında açıkça seçtiği yöntem: gün sonunda açıklamaya bakılıp belirsize düşürülmez (paymentConfirmed)
+function kayitTeyidi(sale,secilen,ilk,neden,at){
+  sale.pay=secilen;
+  if(secilen!=='nakit'){sale.verilen=null;sale.ust=null;}
+  sale.paymentConfirmed=true;
+  sale.paymentHistory=[{at:at,reason:'Kayıtta teyit: '+neden,before:{pay:ilk,karmaNakit:0,karmaPos:0,karmaIban:0},after:{pay:secilen,karmaNakit:null,karmaPos:null,karmaIban:null}}];
+  return sale;
+}
+// Belirsiz kalan ödemenin nedeni (gün sonu mesajı ve satış listesi için)
+function belirsizNedeni(s){
+  var iz=notOdemeIzleri(s.note);
+  if(eskiKayitMi(s)&&(s.pay==='pos'||s.pay==='karma')){
+    var on='eski kayıt (ortak “POS / İban” düğmesi)';
+    if(iz.bos||!(iz.kart||iz.banka))return on+', açıklamada ödeme türü yazmıyor';
+    if(iz.olumsuz)return on+', açıklamada olumsuz ifade var';
+    return on+', açıklamada birden fazla ödeme türü geçiyor';
+  }
+  var yazan=[];if(iz.nakit)yazan.push('nakit');if(iz.kart)yazan.push(iz.kartAd||'POS');if(iz.banka)yazan.push(iz.bankaAd||'IBAN');
+  return (ODEME_AD[s.pay]||s.pay)+' seçili ama açıklamada '+(yazan.join(', ')||'farklı bir ödeme türü')+' yazıyor';
+}
+// Seçim penceresi: Nakit / POS / IBAN ya da geri dön. cb(seçilen) — geri dönülürse cb(null).
+function odemeTeyitSor(uyari,secili,cb){
+  var m=ge('odeme-teyit-modal');
+  if(!m){
+    m=document.createElement('div');m.id='odeme-teyit-modal';
+    m.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center';
+    m.innerHTML='<div style="background:#fff;border-radius:16px;padding:22px 18px;width:90%;max-width:340px;text-align:center">'
+      +'<div style="font-size:30px;margin-bottom:8px">💳</div><div style="font-size:16px;font-weight:800;margin-bottom:8px">Ödeme yöntemi hangisi?</div>'
+      +'<div id="odeme-teyit-msg" style="font-size:13px;color:#555;margin-bottom:16px;line-height:1.4"></div>'
+      +'<div style="display:-webkit-flex;display:flex;gap:8px;margin-bottom:10px">'
+      +['nakit','pos','iban'].map(function(p){return '<button id="odeme-teyit-'+p+'" data-pay="'+p+'" style="flex:1;padding:12px 4px;border:2px solid #185fa5;border-radius:10px;background:#fff;color:#185fa5;font-size:14px;font-weight:800;cursor:pointer;-webkit-appearance:none"></button>';}).join('')
+      +'</div><button id="odeme-teyit-geri" style="width:100%;padding:12px;border:2px solid #ddd;border-radius:10px;background:#f8f8f8;font-size:14px;font-weight:700;cursor:pointer;-webkit-appearance:none">Geri dön, düzelt</button></div>';
+    document.body.appendChild(m);
+  }
+  ge('odeme-teyit-msg').textContent=uyari.metin;
+  var kapat=function(sec){m.style.display='none';m.onclick=null;cb(sec);};
+  ['nakit','pos','iban'].forEach(function(p){var b=ge('odeme-teyit-'+p);b.textContent=ODEME_AD[p]+(p===secili?' (seçili)':'');b.onclick=function(e){e.preventDefault();kapat(p);};});
+  ge('odeme-teyit-geri').onclick=function(e){e.preventDefault();kapat(null);};
+  m.style.display='-webkit-flex';m.style.display='flex';
 }
 function paymentLabel(s){
   var errors=[],ps=satisOdemeleri(s,errors,'Satış');
@@ -2086,7 +2151,7 @@ function mSetPay(t){
 function mCalcKarma(){
   karmaDurumYaz(ge('m-karma-durum'),getMFinalTotal(),parseFloat(ge('m-karma-nakit').value)||0,parseFloat(ge('m-karma-pos').value)||0,parseFloat(ge('m-karma-iban').value)||0);
 }
-function saveManuel(){
+function saveManuel(teyit){
   var keys=Object.keys(mBasket);if(!keys.length)return;
   var tarih=ge('m-tarih').value;
   var saat=ge('m-saat').value||'00:00';
@@ -2099,9 +2164,15 @@ function saveManuel(){
   var hour=parseInt(saat.split(':')[0])||0;
   var karmaNakit2=0,karmaPos2=0,karmaIban2=0;
   if(mPayType==='karma'){karmaNakit2=parseFloat(ge('m-karma-nakit').value)||0;karmaPos2=parseFloat(ge('m-karma-pos').value)||0;karmaIban2=parseFloat(ge('m-karma-iban').value)||0;if(!karmaTamMi(karmaNakit2,karmaPos2,karmaIban2,finalTotal))return;}
+  if(!teyit||typeof teyit!=='object'){
+    var uyari=odemeNotUyarisi(mPayType,not);
+    if(uyari){odemeTeyitSor(uyari,mPayType,function(sec){if(sec)saveManuel({pay:sec,neden:uyari.metin});});return;}
+    teyit=null;
+  }
   var karmaNotM=mPayType==='karma'?karmaNotu(karmaNakit2,karmaPos2,karmaIban2):'';
   var revizeNotM=(origTotal!==finalTotal)?' [Revize: '+origTotal.toLocaleString('tr-TR')+'₺ → '+finalTotal.toLocaleString('tr-TR')+'₺]':'';
   var sale={id:yeniId(),time:saat,hour:hour,items:items,total:finalTotal,origTotal:origTotal!==finalTotal?origTotal:null,pay:mPayType,karmaNakit:mPayType==='karma'?karmaNakit2:null,karmaPos:mPayType==='karma'?karmaPos2:null,karmaIban:mPayType==='karma'?karmaIban2:null,verilen:null,ust:null,note:not+(not?', ':'')+'\u{1F4DD}Manuel'+revizeNotM+karmaNotM};
+  if(teyit)kayitTeyidi(sale,teyit.pay,mPayType,teyit.neden,new Date().toISOString());
   fbUpdateList('sales',tarih,function(arr){return arr.concat([sale]);},function(err){
     if(err)return;
     closeManuel();
@@ -2120,7 +2191,7 @@ var FINANS_ORIGIN='https://ayten-abla-muhasebe.sirdanciaytenabla.chatgpt.site';
 var NONCE_OMRU=10*60*1000;
 var aktarim=null;
 // Yayındaki sürümü doğrulamak için; aktarım veya okuma mantığı her değiştiğinde artırılır
-var ADISYON_SURUM='2026.11.08-r6.2 (kasa v3 açık; eski POS/IBAN not tanıma; ödeme düzeltme)';
+var ADISYON_SURUM='2026.11.08-r6.3-aday (kayıtta ödeme/açıklama çelişki uyarısı; kasa v3 açık)';
 if(ge('adisyon-surum'))ge('adisyon-surum').textContent='Sürüm: '+ADISYON_SURUM;
 
 var PARA_SINIR=1000000000000;
@@ -2162,7 +2233,7 @@ function satisOdemeleri(s,hatalar,no){
 function nullVeyaSayi(v){return(v===undefined||v===null)?null:v;}
 
 function aktarimPaketi(dk,ham,readAt){
-  var hatalar=[],sales=[],ids=Object.create(null);
+  var hatalar=[],sales=[],ids=Object.create(null),belirsizler=[];
   if(ham!==null&&ham!==undefined&&typeof ham!=='object')hatalar.push('Satış listesi bozuk: aktarım durduruldu');
   var arr=hatalar.length?[]:toArr(ham);
   if(arr.length>1000)hatalar.push('Günde en fazla 1000 satış aktarılabilir (bu günde '+arr.length+' var)');
@@ -2198,6 +2269,7 @@ function aktarimPaketi(dk,ham,readAt){
     // Yeni kayıtta ödeme toplamı tutmalı; eski tutarsız kayıt bekleyen kuyruğa gelebilir, finans düzeltmeden onaylamaz
     if(odenen!==totalMinor){hatalar.push(no+': ödemeler toplamı ('+tl(odenen/100)+') satış tutarını ('+tl(s.total)+') tutmuyor');continue;}
     var saatOk=typeof s.time==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(s.time);
+    if(payments.some(function(x){return x.method==='unresolved'&&x.amountMinor>0;}))belirsizler.push((saatOk?s.time+' · ':'')+tl(s.total)+' — '+belirsizNedeni(s));
     sales.push({
       sourceSaleId:sid,
       sourceTime:saatOk?s.time:null,
@@ -2218,7 +2290,7 @@ function aktarimPaketi(dk,ham,readAt){
     var boyut=new TextEncoder().encode(JSON.stringify(payload)).length;
     if(boyut>2*1024*1024)hatalar.push('Veri 2 MB sınırını aşıyor ('+Math.round(boyut/1024)+' KB)');
   }
-  return {payload:payload,hatalar:hatalar};
+  return {payload:payload,hatalar:hatalar,belirsizler:belirsizler};
 }
 
 // Güncel sunucu okuması. SDK'nın get()/once() çağrıları yerel önbellekten dönebildiği için kullanılmaz;
@@ -2307,7 +2379,11 @@ function kasaPaketi(p,gun){
     if(x.method==='cash')nakit+=x.amountMinor;
     if(x.method==='unresolved'&&x.amountMinor>0)belirsiz++;
   }
-  if(belirsiz)h.push(belirsiz+' ödemenin türü belirsiz (eski "POS / İban" kaydı). Kasa mutabakatıyla göndermeden önce bu ödemelerin türü kaynakta çözülmeli.');
+  if(belirsiz){
+    var liste=p.belirsizler||[];
+    h.push(liste.length+' satışın ödeme türü belirsiz; kasa bilgisi bu hâliyle gönderilemez. Aşağıdaki satışlarda “Ödeme düzelt” ile doğru türü seçip günü yeniden aktarın:');
+    for(i=0;i<liste.length;i++)h.push(liste[i]);
+  }
   var additions=kasaKalemleri(gun.gelir,'Ek gelir',h);
   var deductions=kasaKalemleri(gun.gider,'Gider/devir',h);
   if(h.length)return p;
