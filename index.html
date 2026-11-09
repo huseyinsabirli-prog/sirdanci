@@ -34,8 +34,12 @@ body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont
 .lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#999;margin-bottom:8px}
 #mgrid{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:7px}
 .mbtn{width:calc(50% - 3px);padding:10px 6px 8px;background:#f5faf5;border:2px solid #cce5cc;border-radius:10px;text-align:left;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;gap:2px;cursor:pointer;outline:none;-webkit-appearance:none;-webkit-user-select:none;user-select:none;-webkit-transition:background .15s,border-color .15s;transition:background .15s,border-color .15s}
-.mbtn.tap{background:#1a4a2e;border-color:#1a4a2e}
-.mbtn.tap .mn,.mbtn.tap .mp{color:#fff}
+/* r6.6: içecek düğmeleri sınıfla renklenir; basınca ana menü gibi koyu yeşil olur */
+.mbtn.ice{border-color:#b0d0f0;background:#f0f7ff}
+.mbtn.ice .mn{color:#1a4a2e}
+.mbtn.ice .mp{color:#185fa5}
+.mbtn.tap,.mbtn.ice.tap{background:#1a4a2e;border-color:#1a4a2e}
+.mbtn.tap .mn,.mbtn.tap .mp,.mbtn.ice.tap .mn,.mbtn.ice.tap .mp{color:#fff}
 .mn{font-size:16px;font-weight:700;color:#111;line-height:1.2;pointer-events:none}
 .mp{font-size:15px;font-weight:800;color:#1a4a2e;pointer-events:none}
 .bempty{text-align:center;color:#bbb;font-size:15px;padding:14px 0}
@@ -84,6 +88,8 @@ body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont
 .bp{background:#e8f2fc;color:#185fa5}
 .delbtn{background:#ffeeee;color:#c0392b;border:1.5px solid #f0c0c0;border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;outline:none;-webkit-appearance:none}
 .delbtn:active{background:#c0392b;color:#fff}
+.edbtn{background:#eef5ff;color:#185fa5;border:1.5px solid #b0d0f0;border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;outline:none;-webkit-appearance:none}
+.edbtn:active{background:#185fa5;color:#fff}
 .sgrid{display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:7px;margin-bottom:8px}
 .sc{border-radius:10px;padding:10px 12px;width:-webkit-calc(50% - 4px);width:calc(50% - 4px)}
 .sc .sv{font-size:17px;font-weight:800;margin-top:2px}
@@ -113,7 +119,7 @@ body{height:100%;background:#f0f4f0;font-family:-apple-system,BlinkMacSystemFont
 .rb-ortak{background:#185fa5;color:#cce4ff}
 /* SADECE İZLEME — garson olmayan kullanıcılar yazamaz */
 body.readonly .bigbtn,body.readonly #clrbtn,body.readonly .mbtn,
-body.readonly #btn-ag,body.readonly #btn-gd,body.readonly #btn-ek,body.readonly .delbtn{pointer-events:none;opacity:.35}
+body.readonly #btn-ag,body.readonly #btn-gd,body.readonly #btn-ek,body.readonly .delbtn,body.readonly .edbtn{pointer-events:none;opacity:.35}
 body.readonly #savebtn{display:none}
 body.readonly .pb{pointer-events:none}
 body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
@@ -314,7 +320,7 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
   <div id="manuel-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:8000;-webkit-align-items:flex-end;align-items:flex-end;display:none;-webkit-justify-content:center;justify-content:center">
     <div style="background:#fff;border-radius:18px 18px 0 0;padding:20px 16px 32px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto">
       <div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;-webkit-align-items:center;align-items:center;margin-bottom:14px">
-        <span style="font-size:15px;font-weight:800">Manuel Adisyon Ekle</span>
+        <span id="m-baslik" style="font-size:15px;font-weight:800">Manuel Adisyon Ekle</span>
         <button onclick="closeManuel()" style="background:#f0f0f0;border:none;border-radius:50%;width:30px;height:30px;font-size:18px;cursor:pointer;color:#555">&#10005;</button>
       </div>
       <div class="lbl">Tarih</div>
@@ -322,6 +328,7 @@ body.readonly #pnl-adi .card:first-child{opacity:.5;pointer-events:none}
       <div class="lbl">Saat (örn: 14:30)</div>
       <input class="inp" id="m-saat" type="time" style="margin-bottom:12px">
       <div class="lbl">Ürün Seç</div>
+      <div id="m-duz-bilgi" style="display:none;background:#eef5ff;border:1.5px solid #b0d0f0;border-radius:9px;padding:8px 10px;margin-bottom:10px;font-size:12px;color:#185fa5"></div>
       <div id="m-mgrid" style="display:-webkit-flex;display:flex;-webkit-flex-wrap:wrap;flex-wrap:wrap;gap:7px;margin-bottom:12px"></div>
       <div id="m-basket" style="margin-bottom:8px"></div>
       <div style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between;font-weight:800;font-size:16px;padding:8px 0;border-top:2px solid #f0f0f0;margin-bottom:8px">
@@ -825,9 +832,9 @@ function buildMenu(){
   html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#185fa5;margin-bottom:5px">&#127849; İçecek</div>';
   for(var i=0;i<ice.length;i++){
     var m=ice[i];
-    html+='<button class="mbtn" id="mb-'+m.id+'" style="width:100%;margin-bottom:5px;padding:8px 6px 7px;border-color:#b0d0f0;background:#f0f7ff">'
-      +'<span class="mn" style="color:#1a4a2e">'+m.label+'</span>'
-      +'<span class="mp" style="color:#185fa5">'+m.price+'\u20ba</span>'
+    html+='<button class="mbtn ice" id="mb-'+m.id+'" style="width:100%;margin-bottom:5px;padding:8px 6px 7px">'
+      +'<span class="mn">'+m.label+'</span>'
+      +'<span class="mp">'+m.price+'\u20ba</span>'
       +'</button>';
   }
   html+='</div>';
@@ -1002,9 +1009,9 @@ function renderSatis(){
     }
     if(!arr||!arr.length){el.innerHTML='<div class="empty">Bu vardiya i\xe7in sat\u0131\u015f kayd\u0131 yok</div>';return;}
     var rev=arr.slice().reverse(),html='',ids=[];
-    for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=(s.ust!==null&&s.ust!==undefined&&!isNaN(s.ust))?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';var lbl=paymentLabel(s),sorunlu=/belirsiz|hatalı/.test(lbl);/* r6.5: "Ödeme düzelt" yalnız sorunlu satırlarda; diğerlerinde ödeme etiketine dokunarak düzeltilir */var payBadge='<span class="badge" id="eb-'+s.id+'" title="Ödemeyi düzeltmek için dokunun" style="cursor:pointer">'+lbl+'</span>';if(/belirsiz/.test(lbl))ust+='<div style="color:#b35c00;font-weight:700;margin-top:3px">⚠ '+belirsizNedeni(s)+' — “Ödeme düzelt” ile seçin</div>';ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta">'+payBadge+'<span class="stime">'+s.time+'</span>'+(sorunlu?'<button class="delbtn" id="ep-'+s.id+'">Ödeme düzelt</button>':'')+'<button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
+    for(var i=0;i<rev.length;i++){var s=rev[i],desc='';for(var j=0;j<s.items.length;j++){if(j)desc+=', ';if(s.items[j].qty>1)desc+=s.items[j].qty+'\xd7 ';desc+=s.items[j].name;}var ust=(s.ust!==null&&s.ust!==undefined&&!isNaN(s.ust))?' \xb7 \xdcst\xfc: '+Math.abs(s.ust).toLocaleString('tr-TR')+'\u20ba':'';var lbl=paymentLabel(s),sorunlu=/belirsiz|hatalı/.test(lbl);/* r6.5: "Ödeme düzelt" yalnız sorunlu satırlarda; diğerlerinde ödeme etiketine dokunarak düzeltilir */var payBadge='<span class="badge" id="eb-'+s.id+'" title="Ödemeyi düzeltmek için dokunun" style="cursor:pointer">'+lbl+'</span>';if(/belirsiz/.test(lbl))ust+='<div style="color:#b35c00;font-weight:700;margin-top:3px">⚠ '+belirsizNedeni(s)+' — “Ödeme düzelt” ile seçin</div>';ids.push(s.id);html+='<div class="srow"><div class="stop"><span class="samt">'+tl(s.total)+'</span><div class="smeta">'+payBadge+'<span class="stime">'+s.time+'</span>'+(sorunlu?'<button class="delbtn" id="ep-'+s.id+'">Ödeme düzelt</button>':'')+'<button class="edbtn" id="ed-'+s.id+'">Düzelt</button><button class="delbtn" id="ds-'+s.id+'">Sil</button></div></div><div class="sdet">'+desc+(s.note?' \xb7 '+s.note:'')+ust+'</div></div>';}
     el.innerHTML=html;
-    for(var i=0;i<ids.length;i++){(function(sid){['ep-','eb-'].forEach(function(on){var edit=ge(on+sid);if(edit)edit.addEventListener('click',function(e){e.preventDefault();if(document.body.classList.contains('readonly'))return;editSalePayment(sid);});});var b=ge('ds-'+sid);if(!b)return;b.addEventListener('touchend',function(e){e.preventDefault();delSale(sid);},false);b.addEventListener('click',function(e){e.preventDefault();delSale(sid);},false);})(ids[i]);}
+    for(var i=0;i<ids.length;i++){(function(sid){var ed=ge('ed-'+sid);if(ed)ed.addEventListener('click',function(e){e.preventDefault();if(document.body.classList.contains('readonly'))return;openSatisDuzelt(sid);});['ep-','eb-'].forEach(function(on){var edit=ge(on+sid);if(edit)edit.addEventListener('click',function(e){e.preventDefault();if(document.body.classList.contains('readonly'))return;editSalePayment(sid);});});var b=ge('ds-'+sid);if(!b)return;b.addEventListener('touchend',function(e){e.preventDefault();delSale(sid);},false);b.addEventListener('click',function(e){e.preventDefault();delSale(sid);},false);})(ids[i]);}
   });
 }
 var _confirmCb = null;
@@ -2088,7 +2095,8 @@ function updateManuelBtn(){
   if(btn) btn.style.display=isGarson?'inline-flex':'none';
 }
 
-var mBasket={}, mPayType='nakit';
+var mBasket={}, mPayType='nakit', mMeta={}, mDuz=null;
+function mUrun(k){return mMeta[k]||findM(k);}
 
 function openManuel(){
   var modal=ge('manuel-modal');
@@ -2100,7 +2108,8 @@ function openManuel(){
   // Saati şimdiye ayarla
   var now=istNow();
   ge('m-saat').value=pad(now.getUTCHours())+':'+pad(now.getUTCMinutes());
-  mBasket={};mPayType='nakit';
+  mBasket={};mPayType='nakit';mMeta={};mDuz=null;
+  ge('m-baslik').textContent='Manuel Adisyon Ekle';ge('m-tarih').disabled=false;ge('m-savebtn').innerHTML='&#10003; Kaydet';ge('m-duz-bilgi').style.display='none';
   ge('m-pb-nak').className='pb on';
   ge('m-pb-pos').className='pb';
   if(ge('m-pb-iban'))ge('m-pb-iban').className='pb';
@@ -2113,6 +2122,7 @@ function openManuel(){
   renderMBasket();
 }
 function closeManuel(){
+  mDuz=null;
   var modal=ge('manuel-modal');
   if(modal){modal.style.display='none';}
 }
@@ -2141,9 +2151,9 @@ function buildMManuelGrid(){
   html+='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#185fa5;margin-bottom:5px">&#127849; İçecek</div>';
   for(var i=0;i<ice.length;i++){
     var m=ice[i];
-    html+='<button class="mbtn" id="mm-'+m.id+'" style="width:100%;margin-bottom:5px;padding:8px 6px 7px;border-color:#b0d0f0;background:#f0f7ff">'
-      +'<span class="mn" style="color:#1a4a2e">'+m.label+'</span>'
-      +'<span class="mp" style="color:#185fa5">'+m.price+'\u20ba</span>'
+    html+='<button class="mbtn ice" id="mm-'+m.id+'" style="width:100%;margin-bottom:5px;padding:8px 6px 7px">'
+      +'<span class="mn">'+m.label+'</span>'
+      +'<span class="mp">'+m.price+'\u20ba</span>'
       +'</button>';
   }
   html+='</div></div>';
@@ -2182,13 +2192,13 @@ function renderMRevizeFark(){
   if(rev>0&&rev!==total){var fark=rev-total;farkEl.style.display='block';farkEl.textContent=(fark>0?'+ ':'')+fark.toLocaleString('tr-TR')+' ₺ fark (orijinal: '+total.toLocaleString('tr-TR')+' ₺)';farkEl.style.color=fark<0?'#c0392b':'#1a7a4a';}
   else{farkEl.style.display='none';}
 }
-function getMTotal(){var t=0,keys=Object.keys(mBasket);for(var i=0;i<keys.length;i++){var m=findM(keys[i]);if(m)t+=m.price*mBasket[keys[i]];}return t;}
+function getMTotal(){var t=0,keys=Object.keys(mBasket);for(var i=0;i<keys.length;i++){var m=mUrun(keys[i]);if(m)t+=m.price*mBasket[keys[i]];}return t;}
 function renderMBasket(){
   var keys=Object.keys(mBasket),total=getMTotal(),el=ge('m-basket');
   ge('m-savebtn').disabled=!keys.length;
   if(!keys.length){el.innerHTML='<div class="bempty">Ürün eklenmedi</div>';ge('m-total').textContent='0 \u20ba';ge('m-revize-blok').style.display='none';return;}
   var html='';
-  for(var i=0;i<keys.length;i++){var id=keys[i],m=findM(id),q=mBasket[id];html+='<div class="bitem"><span class="biname">'+m.name+'</span><div class="qrow"><button class="qb" id="mqm-'+id+'">\u2212</button><span class="qn">'+q+'</span><button class="qb" id="mqp-'+id+'">+</button></div><span class="bip">'+(m.price*q).toLocaleString('tr-TR')+'\u20ba</span></div>';}
+  for(var i=0;i<keys.length;i++){var id=keys[i],m=mUrun(id),q=mBasket[id];html+='<div class="bitem"><span class="biname">'+m.name+'</span><div class="qrow"><button class="qb" id="mqm-'+id+'">\u2212</button><span class="qn">'+q+'</span><button class="qb" id="mqp-'+id+'">+</button></div><span class="bip">'+(m.price*q).toLocaleString('tr-TR')+'\u20ba</span></div>';}
   el.innerHTML=html;
   for(var i=0;i<keys.length;i++){(function(kid){var bm=ge('mqm-'+kid),bp=ge('mqp-'+kid);if(bm){bm.addEventListener('touchend',function(e){e.preventDefault();mChgQ(kid,-1);},false);bm.addEventListener('click',function(e){e.preventDefault();mChgQ(kid,-1);},false);}if(bp){bp.addEventListener('touchend',function(e){e.preventDefault();mChgQ(kid,1);},false);bp.addEventListener('click',function(e){e.preventDefault();mChgQ(kid,1);},false);};})(keys[i]);}
   ge('m-total').textContent=tl(getMTotal());
@@ -2207,6 +2217,7 @@ function mCalcKarma(){
   karmaDurumYaz(ge('m-karma-durum'),getMFinalTotal(),parseFloat(ge('m-karma-nakit').value)||0,parseFloat(ge('m-karma-pos').value)||0,parseFloat(ge('m-karma-iban').value)||0);
 }
 function saveManuel(teyit){
+  if(mDuz)return saveSatisDuzelt(teyit);
   var keys=Object.keys(mBasket);if(!keys.length)return;
   var tarih=ge('m-tarih').value;
   var saat=ge('m-saat').value||'00:00';
@@ -2238,6 +2249,95 @@ function saveManuel(teyit){
   });
 }
 
+// ── r6.6: ADİSYON DÜZELTME ──
+// Kimlik ve vardiya günü korunur; ürünler, adetler, saat, tutar, ödeme ve açıklama değişebilir.
+// Yazmadan önce sunucudaki kaydın açıldığı andan beri değişmediği kontrol edilir; her düzeltme editHistory'ye eklenir.
+function openSatisDuzelt(id){
+  var dk=viewDate;
+  getSales(dk,function(arr,err){
+    if(err)return;
+    var found=(arr||[]).filter(function(s){return String(s.id)===String(id);});
+    if(found.length!==1)return showToast('Satış bulunamadı');
+    var s=found[0];
+    openManuel();
+    mDuz={id:s.id,dk:dk,expected:JSON.stringify(s),orig:s};
+    mMeta={};mBasket={};
+    (s.items||[]).forEach(function(it,i){
+      var k=String(it.id),m=mMeta[k];
+      if(m&&m.price!==it.price){k=k+'~'+i;m=null;}
+      if(!m)mMeta[k]={id:it.id,name:it.name,price:it.price};
+      mBasket[k]=(mBasket[k]||0)+it.qty;
+    });
+    ge('m-baslik').textContent='Adisyonu Düzelt';
+    ge('m-tarih').value=dk;ge('m-tarih').disabled=true;
+    ge('m-saat').value=/^\d\d:\d\d$/.test(s.time||'')?s.time:'';
+    ge('m-not').value=otomatikEkleriAt(s.note);
+    ge('m-savebtn').innerHTML='&#10003; Düzeltmeyi Kaydet';
+    var bilgi=ge('m-duz-bilgi');bilgi.style.display='block';
+    bilgi.textContent='Düzeltilen satış: '+(s.time||'saat yok')+' · '+tl(s.total)+'. Ürün eklemek için menüye, azaltmak için − düğmesine basın.';
+    renderMBasket();
+    if(s.origTotal!=null&&s.origTotal!==s.total&&kurus(getMTotal())===kurus(s.origTotal)){ge('m-revize-tutar').value=s.total;renderMRevizeFark();}
+    mSetPay(['nakit','pos','iban','karma'].indexOf(s.pay)>=0?s.pay:'nakit');
+    if(s.pay==='karma'){ge('m-karma-nakit').value=s.karmaNakit||'';ge('m-karma-pos').value=s.karmaPos||'';ge('m-karma-iban').value=s.karmaIban||'';mCalcKarma();}
+  });
+}
+function satisOzeti(s){return {items:(s.items||[]).map(function(i){return {id:i.id,name:i.name,qty:i.qty,price:i.price};}),total:s.total,origTotal:nullVeyaSayi(s.origTotal),time:s.time==null?null:s.time,pay:s.pay,karmaNakit:nullVeyaSayi(s.karmaNakit),karmaPos:nullVeyaSayi(s.karmaPos),karmaIban:nullVeyaSayi(s.karmaIban),note:s.note||''};}
+function duzeltilmisSatis(s,d,at){
+  // d: {items,total,origTotal,time,pay,karma:[n,p,i],not,teyit}
+  var next=JSON.parse(JSON.stringify(s));
+  var pay=d.teyit?d.teyit.pay:d.pay;
+  next.items=d.items;next.total=d.total;next.origTotal=d.origTotal!==d.total?d.origTotal:null;
+  next.time=d.time;var hr=parseInt(String(d.time||'').split(':')[0]);if(!isNaN(hr))next.hour=hr;
+  next.pay=pay;
+  next.karmaNakit=pay==='karma'?d.karma[0]:null;next.karmaPos=pay==='karma'?d.karma[1]:null;next.karmaIban=pay==='karma'?d.karma[2]:null;
+  if(pay==='nakit'&&s.verilen!=null&&paraGecerli(s.verilen)){next.verilen=s.verilen;next.ust=s.verilen-d.total;}else{next.verilen=null;next.ust=null;}
+  var manuel=/📝Manuel/.test(s.note||'');
+  next.note=d.not+(manuel?(d.not?', ':'')+'\u{1F4DD}Manuel':'')
+    +(next.origTotal!=null?' [Revize: '+d.origTotal.toLocaleString('tr-TR')+'₺ → '+d.total.toLocaleString('tr-TR')+'₺]':'')
+    +(pay==='karma'?karmaNotu(d.karma[0],d.karma[1],d.karma[2]):'');
+  var odemeDegisti=s.pay!==pay||nullVeyaSayi(s.karmaNakit)!==next.karmaNakit||nullVeyaSayi(s.karmaPos)!==next.karmaPos||nullVeyaSayi(s.karmaIban)!==next.karmaIban;
+  if(odemeDegisti||d.teyit){
+    next.paymentConfirmed=true;
+    next.paymentRevision=(Number.isInteger(s.paymentRevision)?s.paymentRevision:0)+1;
+    next.paymentHistory=(Array.isArray(s.paymentHistory)?s.paymentHistory:[]).concat([{at:at,reason:d.teyit?'Adisyon düzeltmede teyit: '+d.teyit.neden:'Adisyon düzeltme',before:{pay:s.pay,karmaNakit:s.karmaNakit||0,karmaPos:s.karmaPos||0,karmaIban:s.karmaIban||0},after:{pay:pay,karmaNakit:next.karmaNakit,karmaPos:next.karmaPos,karmaIban:next.karmaIban}}]);
+  }
+  var once=satisOzeti(s),sonra=satisOzeti(next);
+  if(JSON.stringify(once)===JSON.stringify(sonra))return null; // değişiklik yok
+  next.editRevision=(Number.isInteger(s.editRevision)?s.editRevision:0)+1;
+  next.editHistory=(Array.isArray(s.editHistory)?s.editHistory:[]).concat([{at:at,by:(window.currentUser&&currentUser.email)||null,before:once,after:sonra}]);
+  return next;
+}
+function saveSatisDuzelt(teyit){
+  var d=mDuz,keys=Object.keys(mBasket);if(!d)return;
+  if(!keys.length){showToast('En az bir ürün kalmalı. Satışı tamamen kaldırmak için “Sil” kullanın.');return;}
+  var saat=ge('m-saat').value||(d.orig.time==null?null:d.orig.time);
+  var not=ge('m-not').value.trim();
+  var origTotal=getMTotal(),finalTotal=getMFinalTotal();
+  if(!paraGecerli(finalTotal)||!paraGecerli(origTotal)||finalTotal<=0){showToast('Satış tutarı geçersiz');return;}
+  var items=keys.map(function(k){var u=mUrun(k);return {id:u.id!=null?u.id:k,name:u.name,qty:mBasket[k],price:u.price};});
+  var kr=[0,0,0];
+  if(mPayType==='karma'){kr=[parseFloat(ge('m-karma-nakit').value)||0,parseFloat(ge('m-karma-pos').value)||0,parseFloat(ge('m-karma-iban').value)||0];if(!karmaTamMi(kr[0],kr[1],kr[2],finalTotal))return;}
+  if(!teyit||typeof teyit!=='object'){
+    var uyari=odemeNotUyarisi(mPayType,not);
+    if(uyari){odemeTeyitSor(uyari,mPayType,function(sec){if(sec)saveSatisDuzelt({pay:sec,neden:uyari.metin});});return;}
+    teyit=null;
+  }
+  var next=duzeltilmisSatis(d.orig,{items:items,total:finalTotal,origTotal:origTotal,time:saat,pay:mPayType,karma:kr,not:not,teyit:teyit},new Date().toISOString());
+  if(!next){closeManuel();showToast('Değişiklik yok');return;}
+  var bos=false,degisti=false;
+  fbUpdateList('sales',d.dk,function(current){
+    if(!current.length){bos=true;return current;}
+    bos=false;
+    try{var out=replacePayment(current,d.id,d.expected,next);degisti=false;return out;}catch(e){degisti=true;return current;}
+  },function(err){
+    if(err)return;
+    if(bos){showToast('Satış sunucuda bulunamadı; düzeltme kaydedilmedi.');renderSatis();return;}
+    if(degisti){showToast('Bu satış bu arada değişmiş; düzeltme kaydedilmedi. Listeyi yenileyip tekrar deneyin.');closeManuel();renderSatis();return;}
+    closeManuel();renderSatis();renderKasa();updateHeader();
+    showToast('Adisyon düzeltildi ✓ Bu gün finansa gönderildiyse yeniden gönderin.');
+  });
+}
+
 // ── FİNANS AKTARIMI (veri sözleşmesi v1) ──
 // Seçili günün ödenmiş satışlarının tam görüntüsü, finansın "bekleyenler" kuyruğuna gönderilir.
 // Gelir oluşturmaz/onaylamaz; finans adisyona geri yazmaz. Yalnız sunucudan doğrulanmış okuma gönderilir.
@@ -2246,7 +2346,7 @@ var FINANS_ORIGIN='https://ayten-abla-muhasebe.sirdanciaytenabla.chatgpt.site';
 var NONCE_OMRU=10*60*1000;
 var aktarim=null;
 // Yayındaki sürümü doğrulamak için; aktarım veya okuma mantığı her değiştiğinde artırılır
-var ADISYON_SURUM='2026.11.08-r6.5-aday (ödeme düzelt yalnız sorunlularda; raporda IBAN ayrı; ekmek; kasa v3 açık)';
+var ADISYON_SURUM='2026.11.09-r6.6-aday (satış düzeltme; içecek basma hissi; raporda IBAN ayrı; ekmek; kasa v3 açık)';
 if(ge('adisyon-surum'))ge('adisyon-surum').textContent='Sürüm: '+ADISYON_SURUM;
 
 var PARA_SINIR=1000000000000;
